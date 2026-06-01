@@ -80,12 +80,12 @@ function projectFace(srcPixels, W, H, ch, faceIdx, faceSize) {
   return buf;
 }
 
-// Resize face buffer from maxFaceSize to targetSize (if needed) and write
+// Resize face buffer from projectedSize to targetSize (if needed) and write
 // all tileSize×tileSize tiles for one face at one level.
-async function writeFaceTiles(faceBuf, maxFaceSize, ch, levelDir, faceIdx, targetSize, tileSize) {
+async function writeFaceTiles(faceBuf, projectedSize, ch, levelDir, faceIdx, targetSize, tileSize) {
   let buf = faceBuf;
-  if (maxFaceSize !== targetSize) {
-    buf = await sharp(faceBuf, { raw: { width: maxFaceSize, height: maxFaceSize, channels: ch } })
+  if (projectedSize !== targetSize) {
+    buf = await sharp(faceBuf, { raw: { width: projectedSize, height: projectedSize, channels: ch } })
       .resize(targetSize, targetSize, { kernel: sharp.kernel.lanczos3 })
       .raw()
       .toBuffer();
@@ -112,16 +112,23 @@ async function writeFaceTiles(faceBuf, maxFaceSize, ch, levelDir, faceIdx, targe
 }
 
 /**
- * Main entry point.
+ * Main entry point. Projects all 6 faces once at the highest faceSize
+ * across all targets, then writes tiles and preview for each target.
  *
- * @param {string}   inputPath   - Source equirectangular JPEG/PNG
- * @param {string}   outputDir   - Destination directory (already created by caller)
- * @param {string}   sceneId     - Scene identifier (informational only)
- * @param {number}   maxFaceSize - Face resolution to project at (power of 2)
- * @param {Array}    levels      - Level descriptors: [{ size, tileSize, fallbackOnly? }]
- * @param {Function} onProgress  - Optional callback (msg: string) for status updates
+ * @param {string}   inputPath  - Source equirectangular JPEG/PNG
+ * @param {Array}    targets    - [{ outputDir, faceSize, levels, label }]
+ * @param {Function} onProgress - Optional callback (msg: string) for status updates
+ *
+ * Single target (desktop-only):
+ *   targets = [{ outputDir, faceSize, levels, label: '' }]
+ *
+ * Desktop + mobile:
+ *   targets = [
+ *     { outputDir,              faceSize,       levels,       label: 'desktop' },
+ *     { outputDir: mobileDir,   faceSize: 512,  levels: ...,  label: 'mobile'  },
+ *   ]
  */
-async function tileScene(inputPath, outputDir, sceneId, maxFaceSize, levels, onProgress) {
+async function tileScene(inputPath, targets, onProgress) {
   const { data: srcPixels, info } = await sharp(inputPath)
     .toColorspace('srgb')
     .removeAlpha()
@@ -130,30 +137,35 @@ async function tileScene(inputPath, outputDir, sceneId, maxFaceSize, levels, onP
 
   const { width: W, height: H, channels: ch } = info;
 
-  // Project all 6 faces at maxFaceSize once
+  // Project at the largest faceSize needed (always desktop when both targets present).
+  // Mobile reuses the same face buffers, downscaling via lanczos3 during tile write.
+  const projectedSize = Math.max(...targets.map(t => t.faceSize));
+
   const faceBuffers = [];
   for (let f = 0; f < 6; f++) {
     onProgress && onProgress(`Projecting face ${f + 1}/6`);
-    faceBuffers.push(projectFace(srcPixels, W, H, ch, f, maxFaceSize));
+    faceBuffers.push(projectFace(srcPixels, W, H, ch, f, projectedSize));
   }
 
-  // Write tiles for every level × every face
-  for (let li = 0; li < levels.length; li++) {
-    const { size, tileSize } = levels[li];
-    const levelDir = path.join(outputDir, String(li + 1));
+  for (const { outputDir, faceSize, levels, label } of targets) {
+    const prefix = label ? `[${label}] ` : '';
 
-    for (let f = 0; f < 6; f++) {
-      onProgress && onProgress(`Level ${li + 1}/${levels.length}, face ${f + 1}/6`);
-      await writeFaceTiles(faceBuffers[f], maxFaceSize, ch, levelDir, f, size, tileSize);
+    for (let li = 0; li < levels.length; li++) {
+      const { size, tileSize } = levels[li];
+      const levelDir = path.join(outputDir, String(li + 1));
+
+      for (let f = 0; f < 6; f++) {
+        onProgress && onProgress(`${prefix}Level ${li + 1}/${levels.length}, face ${f + 1}/6`);
+        await writeFaceTiles(faceBuffers[f], projectedSize, ch, levelDir, f, size, tileSize);
+      }
     }
-  }
 
-  // Preview: front face (+Z, index 4) at PREVIEW_SIZE
-  onProgress && onProgress('Writing preview.jpg');
-  await sharp(faceBuffers[4], { raw: { width: maxFaceSize, height: maxFaceSize, channels: ch } })
-    .resize(PREVIEW_SIZE, PREVIEW_SIZE, { kernel: sharp.kernel.lanczos3 })
-    .jpeg({ quality: 80 })
-    .toFile(path.join(outputDir, 'preview.jpg'));
+    onProgress && onProgress(`${prefix}Writing preview.jpg`);
+    await sharp(faceBuffers[4], { raw: { width: projectedSize, height: projectedSize, channels: ch } })
+      .resize(PREVIEW_SIZE, PREVIEW_SIZE, { kernel: sharp.kernel.lanczos3 })
+      .jpeg({ quality: 80 })
+      .toFile(path.join(outputDir, 'preview.jpg'));
+  }
 }
 
 module.exports = { tileScene };
