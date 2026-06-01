@@ -328,7 +328,7 @@ tiles/scene-01/
 
 ---
 
-## Editor — реализован (UI без экспорта)
+## Editor — реализован полностью
 
 **Стек:** React 19 + Vite 8 + TypeScript 6. Marzipano подключён через npm (`marzipano ^0.10.2`).
 
@@ -362,25 +362,29 @@ EditorState {
 
 **Загрузка панорамы:** `<input type="file" multiple accept="image/*">` → `URL.createObjectURL(file)` → `ADD_SCENE`. Marzipano рендерит через `EquirectGeometry` без тайлинга.
 
-**Не реализовано:** `exporter.ts`, `zipper.ts`, визуальные маркеры хотспотов на canvas.
+**Экспорт (`src/lib/`):**
+- `exporter.ts` — `exportTour()` снимает `panoramaObjectUrl` с EditorScene, возвращает чистый `TourData`
+- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip); место для viewer-файлов зарезервировано
+
+**Не реализовано:** визуальные маркеры хотспотов на canvas, viewer-файлы в ZIP.
 
 ---
 
 ## Текущий статус
 
-**Фаза:** Разработка editor (экспорт) + viewer
+**Фаза:** Разработка viewer
 
 **Что сделано:**
 - [x] Инициализирован monorepo (root package.json + workspaces)
 - [x] Создан пакет `tiler` — полностью реализован, флаг `--mobile`
-- [x] Создан пакет `editor` — UI полностью реализован
+- [x] Создан пакет `editor` — полностью реализован
 - [x] `src/store/types.ts` — все TypeScript-типы схемы тура
 - [x] `src/store/tourStore.tsx` — Context + useReducer, 9 actions
 - [x] `PanoramaList` — загрузка файлов, список сцен
 - [x] `PanoramaCanvas` — Marzipano EquirectGeometry, клик → yaw/pitch
 - [x] `SceneSettings` — название сцены, initialView
 - [x] `HotspotPanel` + `NavHotspotForm` + `InfoHotspotForm`
-- [ ] `exporter.ts` + `zipper.ts` — сериализация и ZIP-экспорт
+- [x] `exporter.ts` + `zipper.ts` — сериализация и ZIP-экспорт
 - [ ] Создан пакет `viewer`
 - [ ] Реализован базовый viewer (Фаза 1)
 - [ ] Реализован `TransitionEngine` (Фаза 2)
@@ -388,8 +392,8 @@ EditorState {
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Реализовать `exporter.ts` (store → `tour.json`) и `zipper.ts` (ZIP через JSZip),
-затем переходить к `packages/viewer`.
+Реализовать `packages/viewer`: Фаза 1 (загрузка tour.json, рендер сцен,
+навигационные хотспоты).
 
 ---
 
