@@ -17,6 +17,7 @@
 - [x] Реализовать `tiler.js` CLI (аргументы: --input, --output, --id)
 - [x] Реализовать `lib/cubemapTiler.js` — обратная проекция + sharp (без panorama-to-cubemap)
 - [x] Реализовать `lib/manifest.js` — генерация `manifest.json` с levels[]
+- [x] Добавить флаг `--mobile` — генерация mobile-набора тайлов за один прогон
 - [x] Протестировать на синтетической equirectangular (2048x1024 градиент)
 
 ### Пакет `editor`
@@ -43,6 +44,8 @@
 - [ ] Реализовать `hotspots/InfoHotspot.js` + `hotspots/InfoPanel.js`
 - [ ] Реализовать `transitions/easing.js`
 - [ ] Реализовать `transitions/TransitionEngine.js` — Zoom + Fade + Land
+- [ ] Mobile: при загрузке определять тип устройства, использовать `tiles/{id}/mobile/`
+      и `mobile/manifest.json` если они присутствуют (graceful fallback на desktop)
 - [ ] Протестировать полный цикл: tiler -> editor -> export -> viewer
 
 ---
