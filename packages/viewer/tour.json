@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "defaultSceneId": "scene-01",
+  "scenes": [
+    {
+      "id": "scene-01",
+      "title": "Example scene",
+      "tilesPath": "tiles/scene-01",
+      "previewUrl": "tiles/scene-01/preview.jpg",
+      "levels": [
+        { "tileSize": 256, "size": 256, "fallbackOnly": true },
+        { "tileSize": 512, "size": 512 },
+        { "tileSize": 512, "size": 1024 }
+      ],
+      "initialView": { "yaw": 0.0, "pitch": 0.0, "fov": 1.5707963 },
+      "hotspots": []
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+/* Base reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Viewer container */
+#viewer {
+  width: 100%;
+  height: 100%;
+}
+
+/* Hotspot base */
+.hotspot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.hotspot-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.hotspot:hover .hotspot-inner {
+  transform: scale(1.15);
+}
+
+/* Navigation hotspot */
+.hotspot-nav .hotspot-inner {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.hotspot-nav .hotspot-inner::after {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 16px solid rgba(255, 255, 255, 0.9);
+  margin-top: -2px;
+}
+
+/* Info hotspot */
+.hotspot-info .hotspot-inner {
+  background: rgba(79, 156, 249, 0.25);
+  border: 2px solid #4f9cf9;
+}
+
+.hotspot-info-icon {
+  font-size: 20px;
+  font-weight: 700;
+  color: #4f9cf9;
+  font-style: italic;
+  line-height: 1;
+}
+
+/* Pulsing ring animation for nav hotspots */
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+  }
+}
+
+/* Info panel overlay */
+.info-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* Info panel */
+.info-panel {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  background: #1e1e1e;
+  border-radius: 8px;
+  overflow-y: auto;
+  padding: 24px;
+  color: #e0e0e0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Info panel close button */
+.info-panel-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: transparent;
+  color: #888;
+  font-size: 24px;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.info-panel-close:hover {
+  color: #e0e0e0;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Info panel title */
+.info-panel-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  margin-right: 32px;
+  color: #fff;
+  line-height: 1.3;
+}
+
+/* Info panel text */
+.info-panel-text {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  color: #c8c8c8;
+}
+
+.info-panel-text a {
+  color: #4f9cf9;
+  text-decoration: none;
+}
+
+.info-panel-text a:hover {
+  text-decoration: underline;
+}
+
+/* Info panel image */
+.info-panel-image {
+  display: block;
+  max-width: 100%;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+/* Info panel media (video/iframe) */
+.info-panel-media {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+}
+
+.info-panel-media iframe,
+.info-panel-media video {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.info-panel-video {
+  background: #000;
+}
+
+/* Scrollbar styling for panel */
+.info-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.info-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.info-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.info-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
