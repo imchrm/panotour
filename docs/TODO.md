@@ -32,18 +32,18 @@
 - [x] Реализовать `SceneSettings` — название сцены, initialView
 - [x] Реализовать `exporter.ts` — сериализация store -> tour.json
 - [x] Реализовать `zipper.ts` — упаковка в ZIP через JSZip
-- [ ] Добавить viewer-файлы в ZIP-архив (после реализации packages/viewer)
+- [x] Добавить viewer-файлы в ZIP-архив (после реализации packages/viewer)
 - [ ] Реализовать экспорт в папку через File System Access API (Chrome/Edge)
 - [ ] Добавить fallback: если File System Access недоступен — только ZIP
 
 ### Пакет `viewer`
-- [ ] Создать базовую структуру файлов viewer
-- [ ] Реализовать `app.js` — загрузка tour.json, инициализация viewer
-- [ ] Реализовать `hotspots/NavHotspot.js`
-- [ ] Реализовать базовый переход (switchTo + targetYaw/targetPitch)
-- [ ] Реализовать `hotspots/InfoHotspot.js` + `hotspots/InfoPanel.js`
-- [ ] Реализовать `transitions/easing.js`
-- [ ] Реализовать `transitions/TransitionEngine.js` — Zoom + Fade + Land
+- [x] Создать базовую структуру файлов viewer
+- [x] Реализовать `app.js` — загрузка tour.json, инициализация viewer
+- [x] Реализовать `hotspots/NavHotspot.js`
+- [x] Реализовать базовый переход (switchTo + targetYaw/targetPitch)
+- [x] Реализовать `hotspots/InfoHotspot.js` + `hotspots/InfoPanel.js`
+- [x] Реализовать `transitions/easing.js`
+- [x] Реализовать `transitions/TransitionEngine.js` — Zoom + Fade + Land
 - [ ] Mobile: при загрузке определять тип устройства, использовать `tiles/{id}/mobile/`
       и `mobile/manifest.json` если они присутствуют (graceful fallback на desktop)
 - [ ] Протестировать полный цикл: tiler -> editor -> export -> viewer

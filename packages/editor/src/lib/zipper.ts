@@ -4,35 +4,39 @@ import type { TourData } from '../store/types';
 
 const TOUR_JSON_INDENT = 2;
 
-/** Direct download of tour.json — no ZIP, no JSZip required. */
+const VIEWER_FILES = [
+  'index.html',
+  'app.js',
+  'style.css',
+  'marzipano.js',
+  'hotspots/NavHotspot.js',
+  'hotspots/InfoHotspot.js',
+  'hotspots/InfoPanel.js',
+  'transitions/TransitionEngine.js',
+  'transitions/easing.js',
+];
+
+async function addViewerFiles(zip: JSZip): Promise<void> {
+  await Promise.all(
+    VIEWER_FILES.map(async (file) => {
+      const res = await fetch(`/viewer/${file}`);
+      if (!res.ok) throw new Error(`Failed to fetch viewer file: ${file} (${res.status})`);
+      zip.file(file, await res.blob());
+    })
+  );
+}
+
 export function downloadTourJson(tour: TourData): void {
   const json = JSON.stringify(tour, null, TOUR_JSON_INDENT);
   const blob = new Blob([json], { type: 'application/json' });
   saveAs(blob, 'tour.json');
 }
 
-/**
- * Build and download a ZIP archive.
- *
- * Current contents:
- *   tour.json — the tour data
- *
- * When packages/viewer is implemented, add viewer static files here:
- *   index.html, app.js, style.css, marzipano.js,
- *   transitions/*, hotspots/*
- * Fetch them from /viewer/* (configure Vite to serve packages/viewer/).
- */
 export async function downloadZip(tour: TourData, zipName = 'tour.zip'): Promise<void> {
   const zip = new JSZip();
 
   zip.file('tour.json', JSON.stringify(tour, null, TOUR_JSON_INDENT));
-
-  // Viewer files placeholder — uncomment and extend after packages/viewer lands:
-  // const viewerFiles = ['index.html', 'app.js', 'style.css', 'marzipano.js'];
-  // for (const f of viewerFiles) {
-  //   const res = await fetch(`/viewer/${f}`);
-  //   zip.file(f, await res.blob());
-  // }
+  await addViewerFiles(zip);
 
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   saveAs(blob, zipName);
