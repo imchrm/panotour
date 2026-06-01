@@ -13,11 +13,11 @@
 - [ ] Создать `README.md` с инструкцией запуска
 
 ### Пакет `tiler`
-- [ ] Инициализировать `packages/tiler/package.json`
-- [ ] Реализовать `tiler.js` CLI (аргументы: --input, --output, --id)
-- [ ] Реализовать `lib/cubemapTiler.js` через `panorama-to-cubemap` + `sharp`
-- [ ] Реализовать `lib/manifest.js` — генерация `manifest.json` с levels[]
-- [ ] Протестировать на тестовой equirectangular панораме
+- [x] Инициализировать `packages/tiler/package.json`
+- [x] Реализовать `tiler.js` CLI (аргументы: --input, --output, --id)
+- [x] Реализовать `lib/cubemapTiler.js` — обратная проекция + sharp (без panorama-to-cubemap)
+- [x] Реализовать `lib/manifest.js` — генерация `manifest.json` с levels[]
+- [x] Протестировать на синтетической equirectangular (2048x1024 градиент)
 
 ### Пакет `editor`
 - [ ] Scaffold через `npm create vite packages/editor -- --template react-ts`
