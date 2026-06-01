@@ -22,8 +22,13 @@
   во viewer. Никаких ограничений чужого API.
 
 **Компромисс:** Тайлинг панорам (нарезка equirectangular → CubeGeometry) не входит в
-браузерную часть редактора на MVP. Используется отдельный Node.js CLI (`tiler`).
-Долгосрочно — возможен WebAssembly тайлер прямо в браузере.
+браузерную часть редактора. Используется отдельный Node.js CLI (`tiler`).
+
+**WebAssembly тайлер — не планируется.** Теоретически реализуем через libvips-wasm +
+Worker, но требует cross-origin isolation (`Cross-Origin-Opener-Policy: same-origin` +
+`Cross-Origin-Embedder-Policy: require-corp` на каждый HTML-документ и все ресурсы).
+Это ломает YouTube iframe в InfoPanel (не cross-origin isolated). Node.js tiler
+покрывает все реальные сценарии без этих ограничений.
 
 ---
 
