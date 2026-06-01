@@ -4,6 +4,7 @@ import { PanoramaList } from './components/PanoramaList/PanoramaList';
 import { PanoramaCanvas } from './components/PanoramaCanvas/PanoramaCanvas';
 import { SceneSettings } from './components/SceneSettings/SceneSettings';
 import { HotspotPanel } from './components/HotspotPanel/HotspotPanel';
+import { ExportButton } from './components/ExportButton/ExportButton';
 import './App.css';
 
 function EditorApp() {
@@ -21,15 +22,21 @@ function EditorApp() {
 
   return (
     <div className="app">
-      <div className="left-panel">
-        <PanoramaList />
-      </div>
-      <div className="canvas-area">
-        <PanoramaCanvas />
-      </div>
-      <div className="right-panel">
-        <SceneSettings />
-        <HotspotPanel />
+      <header className="app-header">
+        <span className="app-title">panotour editor</span>
+        <ExportButton />
+      </header>
+      <div className="app-body">
+        <div className="left-panel">
+          <PanoramaList />
+        </div>
+        <div className="canvas-area">
+          <PanoramaCanvas />
+        </div>
+        <div className="right-panel">
+          <SceneSettings />
+          <HotspotPanel />
+        </div>
       </div>
     </div>
   );
