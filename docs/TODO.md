@@ -33,8 +33,8 @@
 - [x] Реализовать `exporter.ts` — сериализация store -> tour.json
 - [x] Реализовать `zipper.ts` — упаковка в ZIP через JSZip
 - [x] Добавить viewer-файлы в ZIP-архив (после реализации packages/viewer)
-- [ ] Реализовать экспорт в папку через File System Access API (Chrome/Edge)
-- [ ] Добавить fallback: если File System Access недоступен — только ZIP
+- [x] Реализовать экспорт в папку через File System Access API (Chrome/Edge)
+- [x] Добавить fallback: если File System Access недоступен — только ZIP
 
 ### Пакет `viewer`
 - [x] Создать базовую структуру файлов viewer
@@ -44,7 +44,7 @@
 - [x] Реализовать `hotspots/InfoHotspot.js` + `hotspots/InfoPanel.js`
 - [x] Реализовать `transitions/easing.js`
 - [x] Реализовать `transitions/TransitionEngine.js` — Zoom + Fade + Land
-- [ ] Mobile: при загрузке определять тип устройства, использовать `tiles/{id}/mobile/`
+- [x] Mobile: при загрузке определять тип устройства, использовать `tiles/{id}/mobile/`
       и `mobile/manifest.json` если они присутствуют (graceful fallback на desktop)
 - [ ] Протестировать полный цикл: tiler -> editor -> export -> viewer
 
