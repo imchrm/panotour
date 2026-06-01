@@ -1,0 +1,317 @@
+# CONTEXT.md — panotour
+
+> Главный файл для AI-сессий. Передай его в начале сессии — AI сразу в контексте.
+> В конце сессии обновляй разделы "Что сделано" и "Следующий шаг".
+
+---
+
+## Проект
+
+**Название:** panotour — редактор и viewer 360-туров на базе Marzipano
+**Репозиторий:** `panotour` (GitHub)
+**Концепция:** Собственный редактор хотспотов + tiler + viewer. Полный контроль
+над схемой данных тура. Независимость от Marzipano Tool.
+
+**Два независимых приложения в одном репозитории (monorepo):**
+
+| Приложение | Путь | Назначение |
+|---|---|---|
+| `editor` | `packages/editor/` | React + Vite. Редактор тура: загрузка панорам, расстановка хотспотов, экспорт |
+| `viewer` | `packages/viewer/` | Vanilla JS. Готовый тур: рендер панорам, переходы, InfoPanel |
+| `tiler` | `packages/tiler/` | Node.js CLI. Нарезка equirectangular → CubeGeometry тайлы |
+
+---
+
+## Стек
+
+### Editor (`packages/editor/`)
+| Слой | Технология |
+|---|---|
+| UI фреймворк | React 18 + TypeScript |
+| Сборка | Vite 5 |
+| Стили | CSS Modules |
+| Превью панорамы | Marzipano (встроен в редактор для позиционирования хотспотов) |
+| Хранение состояния | React Context + useReducer |
+| Экспорт | JSZip (ZIP) + FileSaver.js |
+
+### Viewer (`packages/viewer/`)
+| Слой | Технология |
+|---|---|
+| 360° рендер | Marzipano (standalone `marzipano.js`) |
+| Логика | Vanilla JS (ES2020, ES modules) |
+| Стили | CSS3 |
+| Входные данные | `tour.json` — генерируется редактором |
+
+### Tiler (`packages/tiler/`)
+| Слой | Технология |
+|---|---|
+| Runtime | Node.js 20+ |
+| Нарезка | `panorama-to-cubemap` + `sharp` |
+| Интерфейс | CLI (`node tiler.js --input pano.jpg --output ./tiles/scene-01`) |
+
+---
+
+## Структура файлов (целевая)
+
+```
+panotour/
+  packages/
+    editor/
+      src/
+        components/
+          PanoramaList/       # Список загруженных панорам
+          PanoramaCanvas/     # Превью панорамы с Marzipano для клика по хотспотам
+          HotspotPanel/       # Форма редактирования выбранного хотспота
+          InfoHotspotForm/    # Подформа для type=info (текст, фото, видео)
+          NavHotspotForm/     # Подформа для type=link (targetYaw, targetPitch, targetFov)
+          ExportButton/       # Кнопка экспорта (ZIP + папка)
+          SceneSettings/      # Настройки сцены (название, initialView)
+        store/
+          tourStore.ts        # Context + useReducer: состояние тура
+          types.ts            # TourData, Scene, Hotspot, InfoContent и др.
+        lib/
+          exporter.ts         # Генерация tour.json + структуры тура для экспорта
+          zipper.ts           # Упаковка в ZIP через JSZip
+        App.tsx
+        main.tsx
+      index.html
+      vite.config.ts
+      tsconfig.json
+      package.json
+
+    viewer/
+      index.html
+      app.js                  # Инициализация viewer, загрузка tour.json
+      style.css
+      marzipano.js            # Библиотека (не модифицируется)
+      transitions/
+        TransitionEngine.js   # Zoom + Move + Fade оркестрация
+        easing.js             # easeInOutQuad, easeOutCubic
+      hotspots/
+        NavHotspot.js         # Хотспот перехода между сценами
+        InfoHotspot.js        # Хотспот вызова InfoPanel
+        InfoPanel.js          # DOM-компонент информационной панели
+      tour.json               # Данные тура (генерируется редактором, заменяется при деплое)
+      tiles/
+        {scene_id}/           # Тайлы (генерируется tiler)
+          preview.jpg
+          {z}/{f}/{y}/{x}.jpg
+
+    tiler/
+      tiler.js                # CLI точка входа
+      lib/
+        cubemapTiler.js       # Нарезка через panorama-to-cubemap + sharp
+        manifest.js           # Генерация манифеста уровней для Marzipano
+      package.json
+
+  package.json                # Root: workspaces, общие dev-скрипты
+  .gitignore
+  README.md
+```
+
+---
+
+## Схема данных `tour.json`
+
+Это центральный контракт между редактором и viewer. Редактор генерирует,
+viewer читает. Схема расширяется добавлением полей — обе стороны под нашим контролем.
+
+```json
+{
+  "version": "1.0",
+  "defaultSceneId": "scene-01",
+  "scenes": [
+    {
+      "id": "scene-01",
+      "title": "Главный вход",
+      "tilesPath": "tiles/scene-01",
+      "previewUrl": "tiles/scene-01/preview.jpg",
+      "levels": [
+        { "tileSize": 256, "size": 256, "fallbackOnly": true },
+        { "tileSize": 512, "size": 512 },
+        { "tileSize": 512, "size": 1024 }
+      ],
+      "initialView": {
+        "yaw": 0.0,
+        "pitch": 0.0,
+        "fov": 1.5707963
+      },
+      "hotspots": [
+        {
+          "id": "hs-001",
+          "type": "link",
+          "yaw": 1.23,
+          "pitch": -0.1,
+          "targetSceneId": "scene-02",
+          "targetYaw": -1.57,
+          "targetPitch": 0.0,
+          "targetFov": 1.5707963
+        },
+        {
+          "id": "hs-002",
+          "type": "info",
+          "yaw": 0.5,
+          "pitch": 0.1,
+          "content": {
+            "title": "Название объекта",
+            "text": "Описание в формате plain text или HTML",
+            "imageUrl": "media/photo-01.jpg",
+            "videoUrl": "https://www.youtube.com/embed/VIDEOID"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Все угловые значения — радианы.** `fov` — горизонтальный (соответствует Marzipano API).
+
+---
+
+## Ключевые константы viewer
+
+```js
+// transitions/TransitionEngine.js
+const TRANSITION = {
+  ZOOM_IN_FOV:    0.5236,   // ~30 deg — FOV при приближении к хотспоту
+  NORMAL_FOV:     1.5708,   // ~90 deg — стандартный FOV
+  ZOOM_DURATION:  600,      // мс — анимация zoom перед переходом
+  FADE_DURATION:  400,      // мс — crossfade между сценами
+  LAND_DURATION:  500,      // мс — zoom-out после приземления в новой сцене
+};
+```
+
+---
+
+## Marzipano API — выжимка для AI
+
+```js
+// Инициализация
+const viewer = new Marzipano.Viewer(element, { controls: { mouseViewMode: 'drag' } });
+
+// Создание сцены
+const geometry = new Marzipano.CubeGeometry(levels);
+const source   = Marzipano.ImageUrlSource.fromString(
+  'tiles/{scene_id}/{z}/{f}/{y}/{x}.jpg',
+  { cubeMapPreviewUrl: 'tiles/{scene_id}/preview.jpg' }
+);
+const limiter  = Marzipano.RectilinearView.limit.traditional(1024, 120 * Math.PI / 180);
+const view     = new Marzipano.RectilinearView(initialView, limiter);
+const scene    = viewer.createScene({ source, geometry, view, pinFirstLevel: true });
+
+// Переключение сцены (встроенный Fade)
+scene.switchTo({ transitionDuration: 1000 });
+
+// Анимация взгляда
+scene.lookTo({ yaw, pitch, fov }, { transitionDuration: 600 });
+
+// Текущий view
+const view  = scene.view();
+view.yaw(); view.pitch(); view.fov();
+view.setParameters({ yaw, pitch, fov });
+
+// Хотспоты
+scene.hotspotContainer().createHotspot(domElement, { yaw, pitch });
+```
+
+---
+
+## Три фазы viewer (порядок реализации)
+
+### Фаза 1 — Базовый viewer
+- Загрузка `tour.json`
+- Рендер сцен через Marzipano
+- Навигационные хотспоты с встроенным Fade (`scene.switchTo`)
+- Корректный `targetYaw` / `targetPitch` при входе в сцену
+
+### Фаза 2 — Кастомные переходы
+- `TransitionEngine`: Zoom-in к хотспоту → Fade → Zoom-out в новой сцене
+- `easing.js`: easeInOutQuad, easeOutCubic
+
+### Фаза 3 — InfoPanel
+- Информационные хотспоты (`type: "info"`)
+- DOM-панель: текст + изображение + YouTube embed / `<video>`
+- Закрытие по кнопке, по Escape, по клику вне панели
+
+---
+
+## Редактор — порядок реализации
+
+### Этап 1 — Скелет и типы
+- Monorepo: root `package.json` с workspaces
+- `packages/editor`: Vite + React + TypeScript
+- `types.ts`: `TourData`, `Scene`, `Hotspot`, `NavHotspot`, `InfoHotspot`, `InfoContent`
+- `tourStore.ts`: Context + useReducer, actions: ADD_SCENE, UPDATE_SCENE, ADD_HOTSPOT,
+  UPDATE_HOTSPOT, DELETE_HOTSPOT, SET_DEFAULT_SCENE
+
+### Этап 2 — Загрузка панорам и превью
+- `PanoramaList`: загрузка файлов через `<input type="file" multiple accept="image/*">`
+- `PanoramaCanvas`: рендер выбранной панорамы через Marzipano для визуального
+  позиционирования хотспотов (клик → yaw/pitch из `view.screenToCoordinates()`)
+
+### Этап 3 — Редактирование хотспотов
+- `HotspotPanel`: список хотспотов сцены + кнопка добавить
+- `NavHotspotForm`: поля targetSceneId (select), targetYaw, targetPitch, targetFov
+- `InfoHotspotForm`: поля title, text (textarea), imageUrl, videoUrl
+
+### Этап 4 — Экспорт
+- `exporter.ts`: генерация `tour.json` из состояния store
+- `zipper.ts`: упаковка viewer + tour.json + tiles (если загружены) в ZIP
+- Экспорт папки: `showDirectoryPicker()` (File System Access API) — только Chrome/Edge
+
+---
+
+## Tiler — порядок реализации
+
+```bash
+node tiler.js --input ./panos/entrance.jpg --output ./tiles/scene-01 --id scene-01
+```
+
+Генерирует:
+```
+tiles/scene-01/
+  preview.jpg          (256x256 cubemap preview)
+  1/f/0/0.jpg          (уровень 1, face f, тайл 0,0)
+  2/f/y/x.jpg          (уровень 2 ...)
+  manifest.json        (levels[], tileSize, size — импортируется редактором)
+```
+
+---
+
+## Текущий статус
+
+**Фаза:** Подготовка / настройка репозитория
+
+**Что сделано:**
+- [ ] Инициализирован monorepo (root package.json + workspaces)
+- [ ] Создан пакет `editor` (Vite + React + TS)
+- [ ] Созданы типы `types.ts`
+- [ ] Создан `tourStore.ts`
+- [ ] Реализован `PanoramaCanvas` с Marzipano
+- [ ] Реализован `HotspotPanel` + формы
+- [ ] Реализован `exporter.ts` + `zipper.ts`
+- [ ] Создан пакет `viewer`
+- [ ] Реализован базовый viewer (Фаза 1)
+- [ ] Реализован `TransitionEngine` (Фаза 2)
+- [ ] Реализована `InfoPanel` (Фаза 3)
+- [ ] Создан пакет `tiler`
+- [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
+
+**Следующий шаг:**
+Инициализировать monorepo: создать root `package.json` с workspaces,
+scaffold `packages/editor` через `npm create vite`, добавить `types.ts`.
+
+---
+
+## Открытые вопросы
+
+1. `view.screenToCoordinates(x, y)` — существует ли этот метод в публичном API
+   Marzipano для конвертации клика мыши в yaw/pitch? Нужно проверить по reference.
+   Альтернатива: `view.coordinatesToScreen()` есть точно, обратный — под вопросом.
+2. File System Access API (`showDirectoryPicker`) — поддержка только Chrome/Edge.
+   Для Firefox — только ZIP. Нужен graceful fallback.
+3. Тайлинг в браузере (без Node.js tiler) — возможен через WebAssembly (libvips-wasm),
+   но сложно. Оставить как долгосрочную идею.
+4. Лицензия на использование Marzipano внутри редактора: Apache 2.0, коммерческое
+   использование разрешено. Проверено.
