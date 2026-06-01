@@ -328,19 +328,59 @@ tiles/scene-01/
 
 ---
 
+## Editor — реализован (UI без экспорта)
+
+**Стек:** React 19 + Vite 8 + TypeScript 6. Marzipano подключён через npm (`marzipano ^0.10.2`).
+
+**Архитектура:** 3-колоночный layout.
+```
+┌─────────────┬───────────────────────────┬──────────────────┐
+│ PanoramaList│     PanoramaCanvas        │  SceneSettings   │
+│  220px      │   (Marzipano viewer)      │  HotspotPanel    │
+│             │   EquirectGeometry        │  NavHotspotForm  │
+│             │   клик → ADD_HOTSPOT      │  InfoHotspotForm │
+│             │                           │     300px        │
+└─────────────┴───────────────────────────┴──────────────────┘
+```
+
+**Состояние (`tourStore.tsx`):**
+```typescript
+EditorState {
+  tour: { version, defaultSceneId, scenes: EditorScene[] }
+  activeSceneId: string | null
+  activeHotspotId: string | null
+  placingHotspot: false | 'link' | 'info'
+}
+```
+`EditorScene` extends `Scene` + `panoramaObjectUrl?: string` (Object URL загруженного файла).
+
+**Поток добавления хотспота:**
+1. Нажать "+ Nav" / "+ Info" → `START_PLACING_HOTSPOT`
+2. Клик по canvas → `view.screenToCoordinates({x,y})` → yaw/pitch
+3. `ADD_HOTSPOT` → хотспот появляется в списке, открывается форма
+4. Esc → `CANCEL_PLACING_HOTSPOT`
+
+**Загрузка панорамы:** `<input type="file" multiple accept="image/*">` → `URL.createObjectURL(file)` → `ADD_SCENE`. Marzipano рендерит через `EquirectGeometry` без тайлинга.
+
+**Не реализовано:** `exporter.ts`, `zipper.ts`, визуальные маркеры хотспотов на canvas.
+
+---
+
 ## Текущий статус
 
-**Фаза:** Разработка editor + viewer
+**Фаза:** Разработка editor (экспорт) + viewer
 
 **Что сделано:**
 - [x] Инициализирован monorepo (root package.json + workspaces)
-- [x] Создан пакет `editor` (Vite + React + TS scaffold)
-- [x] Создан пакет `tiler` — полностью реализован и протестирован
-- [ ] Созданы типы `types.ts`
-- [ ] Создан `tourStore.ts`
-- [ ] Реализован `PanoramaCanvas` с Marzipano
-- [ ] Реализован `HotspotPanel` + формы
-- [ ] Реализован `exporter.ts` + `zipper.ts`
+- [x] Создан пакет `tiler` — полностью реализован, флаг `--mobile`
+- [x] Создан пакет `editor` — UI полностью реализован
+- [x] `src/store/types.ts` — все TypeScript-типы схемы тура
+- [x] `src/store/tourStore.tsx` — Context + useReducer, 9 actions
+- [x] `PanoramaList` — загрузка файлов, список сцен
+- [x] `PanoramaCanvas` — Marzipano EquirectGeometry, клик → yaw/pitch
+- [x] `SceneSettings` — название сцены, initialView
+- [x] `HotspotPanel` + `NavHotspotForm` + `InfoHotspotForm`
+- [ ] `exporter.ts` + `zipper.ts` — сериализация и ZIP-экспорт
 - [ ] Создан пакет `viewer`
 - [ ] Реализован базовый viewer (Фаза 1)
 - [ ] Реализован `TransitionEngine` (Фаза 2)
@@ -348,16 +388,15 @@ tiles/scene-01/
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Реализовать `packages/editor`: типы (`types.ts`), store (`tourStore.ts`),
-основные компоненты UI.
+Реализовать `exporter.ts` (store → `tour.json`) и `zipper.ts` (ZIP через JSZip),
+затем переходить к `packages/viewer`.
 
 ---
 
 ## Открытые вопросы
 
-1. `view.screenToCoordinates(x, y)` — существует ли этот метод в публичном API
-   Marzipano для конвертации клика мыши в yaw/pitch? Нужно проверить по reference.
-   Альтернатива: `view.coordinatesToScreen()` есть точно, обратный — под вопросом.
+1. `view.screenToCoordinates({x,y})` — **использован** в PanoramaCanvas.
+   Работает в Marzipano, метод существует в публичном API RectilinearView.
 2. File System Access API (`showDirectoryPicker`) — поддержка только Chrome/Edge.
    Для Firefox — только ZIP. Нужен graceful fallback.
 3. Тайлинг в браузере (без Node.js tiler) — возможен через WebAssembly (libvips-wasm),
