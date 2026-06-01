@@ -21,16 +21,15 @@
 - [x] Протестировать на синтетической equirectangular (2048x1024 градиент)
 
 ### Пакет `editor`
-- [ ] Scaffold через `npm create vite packages/editor -- --template react-ts`
-- [ ] Создать `src/store/types.ts` — все TypeScript-типы схемы тура
-- [ ] Создать `src/store/tourStore.ts` — Context + useReducer
-- [ ] Реализовать `PanoramaList` — загрузка файлов, список сцен
-- [ ] Реализовать `PanoramaCanvas` — рендер панорамы через Marzipano
-- [ ] Выяснить и реализовать конвертацию клика в yaw/pitch (см. открытый вопрос #1)
-- [ ] Реализовать `HotspotPanel` — список хотспотов, кнопка добавить/удалить
-- [ ] Реализовать `NavHotspotForm` — поля link-хотспота
-- [ ] Реализовать `InfoHotspotForm` — поля info-хотспота
-- [ ] Реализовать `SceneSettings` — название сцены, initialView
+- [x] Scaffold (Vite + React + TS)
+- [x] Создать `src/store/types.ts` — все TypeScript-типы схемы тура
+- [x] Создать `src/store/tourStore.tsx` — Context + useReducer (9 actions)
+- [x] Реализовать `PanoramaList` — загрузка файлов, список сцен
+- [x] Реализовать `PanoramaCanvas` — Marzipano EquirectGeometry, клик → yaw/pitch
+- [x] Реализовать `HotspotPanel` — список хотспотов, кнопка добавить/удалить
+- [x] Реализовать `NavHotspotForm` — поля link-хотспота
+- [x] Реализовать `InfoHotspotForm` — поля info-хотспота
+- [x] Реализовать `SceneSettings` — название сцены, initialView
 - [ ] Реализовать `exporter.ts` — сериализация store -> tour.json
 - [ ] Реализовать `zipper.ts` — упаковка в ZIP через JSZip
 - [ ] Реализовать экспорт в папку через File System Access API (Chrome/Edge)
