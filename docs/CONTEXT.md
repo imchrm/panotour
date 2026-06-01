@@ -366,13 +366,65 @@ EditorState {
 - `exporter.ts` — `exportTour()` снимает `panoramaObjectUrl` с EditorScene, возвращает чистый `TourData`
 - `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip); место для viewer-файлов зарезервировано
 
-**Не реализовано:** визуальные маркеры хотспотов на canvas, viewer-файлы в ZIP.
+**Не реализовано:** визуальные маркеры хотспотов на canvas.
+
+---
+
+## Viewer — реализован полностью
+
+**Стек:** Vanilla JS (ES2020, ES modules). Marzipano v0.10.2 скопирован как `marzipano.js`.
+
+**Архитектура:**
+```
+packages/viewer/
+  index.html                  — подключает marzipano.js и app.js как module
+  app.js                      — загрузка tour.json, инициализация viewer и сцен
+  style.css                   — базовые стили, стили хотспотов и InfoPanel
+  marzipano.js                — библиотека (не модифицируется)
+  hotspots/
+    NavHotspot.js             — хотспот перехода (DOM-элемент с yaw/pitch)
+    InfoHotspot.js            — хотспот информации (DOM-элемент)
+    InfoPanel.js              — DOM-панель: текст + фото + YouTube/video
+  transitions/
+    TransitionEngine.js       — оркестрация Zoom + Fade + Land
+    easing.js                 — easeInOutQuad, easeOutCubic
+  tour.json                   — placeholder для разработки
+```
+
+**Поток инициализации (`app.js`):**
+1. `fetch('tour.json')` → данные тура
+2. Для каждой сцены: `CubeGeometry(levels)` + `ImageUrlSource` + `RectilinearView` → `viewer.createScene()`
+3. `TransitionEngine` — создаётся один раз, управляет переходами
+4. Для каждого хотспота сцены: `NavHotspot.create()` или `InfoHotspot.create()`
+5. `defaultEntry.marzipanoScene.switchTo()` — показ стартовой сцены
+
+**TransitionEngine — три фазы перехода:**
+```
+t=0:    from.lookTo(hotspot yaw/pitch, ZOOM_IN_FOV=0.52, duration=600ms)
+t=300:  to.view.setParameters(targetYaw/pitch, ZOOM_IN_FOV)
+        to.switchTo(FADE_DURATION=400ms)
+t=700:  to.lookTo(targetYaw/pitch/fov, LAND_DURATION=500ms)
+t=1200: _busy = false
+```
+Использует `setTimeout` (не Promise-цепочки) — Marzipano не имеет колбэков завершения анимации.
+
+**InfoPanel:**
+- Открывается кликом на info-хотспот
+- Поддерживает: текст (innerHTML), `imageUrl`, YouTube iframe (`/embed/` URL), `<video>` (локальный mp4)
+- Закрывается по кнопке ×, Escape, клику вне панели
+- Останавливает медиа при закрытии (pause/src="")
+
+**ZIP-экспорт (editor → viewer):**
+- `vite.config.ts` — плагин `viewer-files`:
+  - dev: middleware `/viewer/*` → `packages/viewer/*`
+  - build: `generateBundle` → эмитирует все файлы viewer как `viewer/*` ассеты
+- `zipper.ts` — `downloadZip()` фетчит 9 файлов viewer с `/viewer/*`, упаковывает в ZIP вместе с `tour.json`
 
 ---
 
 ## Текущий статус
 
-**Фаза:** Разработка viewer
+**Фаза:** MVP завершён, полный цикл готов к тестированию
 
 **Что сделано:**
 - [x] Инициализирован monorepo (root package.json + workspaces)
@@ -384,16 +436,16 @@ EditorState {
 - [x] `PanoramaCanvas` — Marzipano EquirectGeometry, клик → yaw/pitch
 - [x] `SceneSettings` — название сцены, initialView
 - [x] `HotspotPanel` + `NavHotspotForm` + `InfoHotspotForm`
-- [x] `exporter.ts` + `zipper.ts` — сериализация и ZIP-экспорт
-- [ ] Создан пакет `viewer`
-- [ ] Реализован базовый viewer (Фаза 1)
-- [ ] Реализован `TransitionEngine` (Фаза 2)
-- [ ] Реализована `InfoPanel` (Фаза 3)
+- [x] `exporter.ts` + `zipper.ts` — сериализация, ZIP-экспорт с viewer-файлами
+- [x] Создан пакет `viewer` — полностью реализован
+- [x] Реализован базовый viewer (Фаза 1)
+- [x] Реализован `TransitionEngine` (Фаза 2)
+- [x] Реализована `InfoPanel` (Фаза 3)
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Реализовать `packages/viewer`: Фаза 1 (загрузка tour.json, рендер сцен,
-навигационные хотспоты).
+Протестировать полный цикл: нарезать тестовую панораму tiler-ом, расставить хотспоты
+в редакторе, экспортировать ZIP, развернуть viewer и проверить переходы и InfoPanel.
 
 ---
 
