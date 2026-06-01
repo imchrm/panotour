@@ -8,9 +8,9 @@
 ## Срочно (MVP — полный цикл)
 
 ### Инфраструктура
-- [ ] Создать root `package.json` с `workspaces: ["packages/*"]`
-- [ ] Создать `.gitignore` (node_modules, dist, *.tgz, .DS_Store)
-- [ ] Создать `README.md` с инструкцией запуска
+- [x] Создать root `package.json` с `workspaces: ["packages/*"]`
+- [x] Создать `.gitignore` (node_modules, dist, *.tgz, .DS_Store)
+- [x] Создать `README.md` с инструкцией запуска
 
 ### Пакет `tiler`
 - [x] Инициализировать `packages/tiler/package.json`
@@ -30,8 +30,9 @@
 - [x] Реализовать `NavHotspotForm` — поля link-хотспота
 - [x] Реализовать `InfoHotspotForm` — поля info-хотспота
 - [x] Реализовать `SceneSettings` — название сцены, initialView
-- [ ] Реализовать `exporter.ts` — сериализация store -> tour.json
-- [ ] Реализовать `zipper.ts` — упаковка в ZIP через JSZip
+- [x] Реализовать `exporter.ts` — сериализация store -> tour.json
+- [x] Реализовать `zipper.ts` — упаковка в ZIP через JSZip
+- [ ] Добавить viewer-файлы в ZIP-архив (после реализации packages/viewer)
 - [ ] Реализовать экспорт в папку через File System Access API (Chrome/Edge)
 - [ ] Добавить fallback: если File System Access недоступен — только ZIP
 
