@@ -1,0 +1,13 @@
+{
+  "name": "panotour",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "editor": "npm run dev --workspace=packages/editor",
+    "tiler": "npm run --workspace=packages/tiler",
+    "build:editor": "npm run build --workspace=packages/editor"
+  }
+}
