@@ -265,35 +265,63 @@ scene.hotspotContainer().createHotspot(domElement, { yaw, pitch });
 ## Tiler — реализован
 
 ```bash
+# Только desktop
 node tiler.js --input ./panos/entrance.jpg --output ./tiles/scene-01 --id scene-01
+
+# Desktop + mobile за один прогон
+node tiler.js --input ./panos/entrance.jpg --output ./tiles/scene-01 --id scene-01 --mobile
 ```
 
-Генерирует:
+Генерирует (без `--mobile`):
 ```
 tiles/scene-01/
-  preview.jpg          (256x256, front face +Z)
-  {z}/{f}/{y}/{x}.jpg  (z=номер уровня 1-based, f=грань 0-5, y/x=координаты тайла)
-  manifest.json        (levels[], sceneId — импортируется редактором)
+  preview.jpg          (256×256, front face +Z)
+  {z}/{f}/{y}/{x}.jpg
+  manifest.json
 ```
+
+Генерирует (с `--mobile`):
+```
+tiles/scene-01/
+  preview.jpg
+  {z}/{f}/{y}/{x}.jpg
+  manifest.json
+  mobile/
+    preview.jpg
+    {z}/{f}/{y}/{x}.jpg
+    manifest.json
+```
+
+**Флаг `--mobile`:** проецирует 6 граней один раз (на desktop faceSize), затем
+из тех же буферов нарезает два независимых набора тайлов. Дополнительного времени
+на проекцию не тратится, только на resize + запись мобильных тайлов.
 
 **Порядок граней (f в URL):**
 | f | Направление | Центр панорамы |
 |---|---|---|
-| 0 | +X (правая грань) | lon=+90° |
-| 1 | -X (левая грань)  | lon=-90° |
-| 2 | +Y (верхняя грань) | lat=+90° |
-| 3 | -Y (нижняя грань) | lat=-90° |
+| 0 | +X (правая грань)      | lon=+90° |
+| 1 | -X (левая грань)       | lon=-90° |
+| 2 | +Y (верхняя грань)     | lat=+90° |
+| 3 | -Y (нижняя грань)      | lat=-90° |
 | 4 | +Z (фронтальная грань) | lon=0° — центр equirectangular |
-| 5 | -Z (задняя грань)  | lon=±180° |
+| 5 | -Z (задняя грань)      | lon=±180° |
 
-**Уровни по ширине входного изображения:**
-| Ширина | faceSize | Уровни |
+**Desktop — уровни по ширине входного изображения:**
+| Ширина | faceSize | Уровни (size / tileSize) |
 |---|---|---|
-| < 2048 | 256 | 256(fb) |
-| 2048 | 512 | 256(fb), 512 |
-| 4096 | 1024 | 256(fb), 512, 1024 |
-| 8192 | 2048 | 256(fb), 512, 1024, 2048 |
-| 16384 | 4096 | 256(fb), 512, 1024, 2048, 4096 |
+| < 2048  | 256  | 256/256(fb) |
+| 2048    | 512  | 256/256(fb), 512/512 |
+| 4096    | 1024 | 256/256(fb), 512/512, 1024/512 |
+| 8192    | 2048 | 256/256(fb), 512/512, 1024/512, 2048/512 |
+| 16384   | 4096 | 256/256(fb), 512/512, 1024/512, 2048/512, 4096/512 |
+
+**Mobile — всегда:**
+| faceSize | Уровни (size / tileSize) | Макс. GPU-текстура |
+|---|---|---|
+| min(512, desktopFaceSize) | 256/256(fb), 512/256 | 256×256 (4× меньше desktop) |
+
+**Viewer — переключение на mobile:** изменить `tilesPath` сцены с `tiles/scene-01`
+на `tiles/scene-01/mobile` и загрузить `mobile/manifest.json`.
 
 **Зависимости:** `sharp` (нативный, через libvips), `minimist`
 **Конвертация:** обратная проекция equirectangular → CubeGeometry, билинейная интерполяция.
