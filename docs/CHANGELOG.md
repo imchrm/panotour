@@ -78,6 +78,28 @@
 
 ---
 
+## [2026-06-01] — Экспорт в папку, мобильные тайлы
+
+**Пакет:** editor, viewer
+
+**Что сделано:**
+- `zipper.ts`: `exportToFolder()` — записывает `tour.json` + 9 файлов viewer
+  напрямую в выбранную папку через File System Access API (Chrome/Edge);
+  создаёт подпапки `hotspots/` и `transitions/` автоматически.
+- `zipper.ts`: `hasFolderExport()` — проверка поддержки API в браузере.
+- Fallback: если `showDirectoryPicker` недоступен (Firefox) — автоматически
+  вызывает `downloadZip()`.
+- `ExportButton.tsx`: добавлена кнопка "→ Folder"; `AbortError` (пользователь
+  закрыл диалог) перехватывается без ошибки.
+- `app.js`: `isMobile()` — определение мобильного устройства
+  (userAgent + maxTouchPoints).
+- `app.js`: `resolveSceneData()` — на мобильных устройствах запрашивает
+  `tiles/{id}/mobile/manifest.json`; при успехе подставляет мобильные пути,
+  при ошибке 404 или сетевой ошибке — тихий fallback на desktop.
+  Все сцены резолвятся параллельно через `Promise.all`.
+
+---
+
 ## [2026-06-01] — ZIP-экспорт с viewer-файлами
 
 **Пакет:** editor
