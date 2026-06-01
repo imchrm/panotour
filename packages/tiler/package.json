@@ -1,0 +1,14 @@
+{
+  "name": "tiler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "tiler.js",
+  "scripts": {
+    "start": "node tiler.js"
+  },
+  "dependencies": {
+    "minimist": "^1.2.8",
+    "sharp": "^0.33.5"
+  }
+}

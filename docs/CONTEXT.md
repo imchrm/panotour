@@ -262,7 +262,7 @@ scene.hotspotContainer().createHotspot(domElement, { yaw, pitch });
 
 ---
 
-## Tiler — порядок реализации
+## Tiler — реализован
 
 ```bash
 node tiler.js --input ./panos/entrance.jpg --output ./tiles/scene-01 --id scene-01
@@ -271,21 +271,43 @@ node tiler.js --input ./panos/entrance.jpg --output ./tiles/scene-01 --id scene-
 Генерирует:
 ```
 tiles/scene-01/
-  preview.jpg          (256x256 cubemap preview)
-  1/f/0/0.jpg          (уровень 1, face f, тайл 0,0)
-  2/f/y/x.jpg          (уровень 2 ...)
-  manifest.json        (levels[], tileSize, size — импортируется редактором)
+  preview.jpg          (256x256, front face +Z)
+  {z}/{f}/{y}/{x}.jpg  (z=номер уровня 1-based, f=грань 0-5, y/x=координаты тайла)
+  manifest.json        (levels[], sceneId — импортируется редактором)
 ```
+
+**Порядок граней (f в URL):**
+| f | Направление | Центр панорамы |
+|---|---|---|
+| 0 | +X (правая грань) | lon=+90° |
+| 1 | -X (левая грань)  | lon=-90° |
+| 2 | +Y (верхняя грань) | lat=+90° |
+| 3 | -Y (нижняя грань) | lat=-90° |
+| 4 | +Z (фронтальная грань) | lon=0° — центр equirectangular |
+| 5 | -Z (задняя грань)  | lon=±180° |
+
+**Уровни по ширине входного изображения:**
+| Ширина | faceSize | Уровни |
+|---|---|---|
+| < 2048 | 256 | 256(fb) |
+| 2048 | 512 | 256(fb), 512 |
+| 4096 | 1024 | 256(fb), 512, 1024 |
+| 8192 | 2048 | 256(fb), 512, 1024, 2048 |
+| 16384 | 4096 | 256(fb), 512, 1024, 2048, 4096 |
+
+**Зависимости:** `sharp` (нативный, через libvips), `minimist`
+**Конвертация:** обратная проекция equirectangular → CubeGeometry, билинейная интерполяция.
 
 ---
 
 ## Текущий статус
 
-**Фаза:** Подготовка / настройка репозитория
+**Фаза:** Разработка editor + viewer
 
 **Что сделано:**
-- [ ] Инициализирован monorepo (root package.json + workspaces)
-- [ ] Создан пакет `editor` (Vite + React + TS)
+- [x] Инициализирован monorepo (root package.json + workspaces)
+- [x] Создан пакет `editor` (Vite + React + TS scaffold)
+- [x] Создан пакет `tiler` — полностью реализован и протестирован
 - [ ] Созданы типы `types.ts`
 - [ ] Создан `tourStore.ts`
 - [ ] Реализован `PanoramaCanvas` с Marzipano
@@ -295,12 +317,11 @@ tiles/scene-01/
 - [ ] Реализован базовый viewer (Фаза 1)
 - [ ] Реализован `TransitionEngine` (Фаза 2)
 - [ ] Реализована `InfoPanel` (Фаза 3)
-- [ ] Создан пакет `tiler`
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Инициализировать monorepo: создать root `package.json` с workspaces,
-scaffold `packages/editor` через `npm create vite`, добавить `types.ts`.
+Реализовать `packages/editor`: типы (`types.ts`), store (`tourStore.ts`),
+основные компоненты UI.
 
 ---
 
