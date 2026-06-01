@@ -21,6 +21,75 @@
 
 ---
 
+## [2026-06-01] — Пакет `tiler` — реализован
+
+**Пакет:** tiler
+
+**Что сделано:**
+- Реализован CLI `tiler.js` (аргументы `--input`, `--output`, `--id`, `--mobile`).
+- `lib/cubemapTiler.js` — собственная обратная проекция equirectangular → CubeGeometry
+  с билинейной интерполяцией (без внешних зависимостей на Canvas API).
+- `lib/manifest.js` — генерация `manifest.json` с уровнями для Marzipano.
+- Флаг `--mobile`: один прогон проекции — два независимых набора тайлов
+  (desktop tileSize=512, mobile tileSize=256, 4× меньше VRAM).
+- Порядок граней: 0=+X, 1=−X, 2=+Y, 3=−Y, 4=+Z (фронт), 5=−Z (зад).
+
+**Почему:** `panorama-to-cubemap` требует Canvas API — несовместим с Node.js.
+Реализован собственный математический конвертер (lon/lat → px/py → bilinear sample).
+
+---
+
+## [2026-06-01] — Пакет `editor` — реализован
+
+**Пакет:** editor
+
+**Что сделано:**
+- Scaffold: React 19 + Vite 8 + TypeScript 6.
+- `src/store/types.ts` — все TypeScript-типы схемы тура (TourData, Scene, Hotspot и др.).
+- `src/store/tourStore.tsx` — Context + useReducer, 9 actions.
+- `PanoramaList` — загрузка файлов (`input[type=file]`), список сцен.
+- `PanoramaCanvas` — превью через Marzipano `EquirectGeometry`, клик → yaw/pitch.
+- `SceneSettings` — название сцены, поля initialView.
+- `HotspotPanel` — список хотспотов + кнопки "+ Nav" / "+ Info".
+- `NavHotspotForm` — targetSceneId (select), targetYaw/Pitch/Fov.
+- `InfoHotspotForm` — title, text, imageUrl, videoUrl.
+- `exporter.ts` — `exportTour()` снимает `panoramaObjectUrl`, возвращает чистый `TourData`.
+- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip).
+- `ExportButton` — кнопка экспорта в шапке редактора.
+
+---
+
+## [2026-06-01] — Пакет `viewer` — реализован (все 3 фазы)
+
+**Пакет:** viewer
+
+**Что сделано:**
+- **Фаза 1:** `app.js` загружает `tour.json`, создаёт сцены через `CubeGeometry` +
+  `ImageUrlSource` + `RectilinearView`, инициализирует `NavHotspot` и `InfoHotspot`.
+- **Фаза 2:** `transitions/TransitionEngine.js` — трёхфазный переход:
+  zoom-in к хотспоту (600ms) → crossfade (400ms) → zoom-out в новой сцене (500ms).
+  `transitions/easing.js` — `easeInOutQuad`, `easeOutCubic`.
+- **Фаза 3:** `hotspots/InfoPanel.js` — DOM-панель с текстом (innerHTML), фото,
+  YouTube iframe и `<video>`. Закрытие по ×, Escape, клику вне панели.
+- `marzipano.js` — Marzipano v0.10.2, скопирован как standalone-скрипт.
+
+**Почему:** `setTimeout` вместо Promise-цепочек — Marzipano не имеет колбэков
+завершения анимации (ADR-008).
+
+---
+
+## [2026-06-01] — ZIP-экспорт с viewer-файлами
+
+**Пакет:** editor
+
+**Что сделано:**
+- `vite.config.ts`: плагин `viewer-files` — dev-middleware `/viewer/*` →
+  `packages/viewer/*`; `generateBundle` эмитирует все файлы viewer как ассеты.
+- `zipper.ts`: `downloadZip()` фетчит 9 файлов viewer параллельно (`Promise.all`)
+  и упаковывает их вместе с `tour.json`. Скачанный ZIP — готовый self-contained тур.
+
+---
+
 <!--
 Шаблон для будущих сессий:
 
