@@ -451,8 +451,8 @@ t=1200: _busy = false
 
 ## Открытые вопросы
 
-1. `view.screenToCoordinates({x,y})` — **использован** в PanoramaCanvas.
-   Работает в Marzipano, метод существует в публичном API RectilinearView.
+1. `view.screenToCoordinates({x,y})` — **подтверждён** по исходнику `marzipano.js` v0.10.2.
+   Реализован в `RectilinearView` и `FlatView`. Используется в `PanoramaCanvas.tsx`.
 2. File System Access API (`showDirectoryPicker`) — поддержка только Chrome/Edge.
    Для Firefox — только ZIP. Нужен graceful fallback.
 3. Тайлинг в браузере (без Node.js tiler) — возможен через WebAssembly (libvips-wasm),
