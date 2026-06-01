@@ -2,6 +2,30 @@ import { NavHotspot } from './hotspots/NavHotspot.js';
 import { InfoHotspot } from './hotspots/InfoHotspot.js';
 import { TransitionEngine } from './transitions/TransitionEngine.js';
 
+function isMobile() {
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || navigator.maxTouchPoints > 1;
+}
+
+async function resolveSceneData(sceneData) {
+  if (!isMobile()) return sceneData;
+
+  const mobilePath = `${sceneData.tilesPath}/mobile`;
+  try {
+    const res = await fetch(`${mobilePath}/manifest.json`);
+    if (!res.ok) return sceneData;
+    const { levels } = await res.json();
+    return {
+      ...sceneData,
+      tilesPath: mobilePath,
+      previewUrl: `${mobilePath}/preview.jpg`,
+      levels,
+    };
+  } catch {
+    return sceneData;
+  }
+}
+
 async function init() {
   const tour = await fetch('tour.json').then(r => r.json());
 
@@ -10,10 +34,13 @@ async function init() {
     controls: { mouseViewMode: 'drag' },
   });
 
+  // Resolve mobile tiles for all scenes in parallel (graceful fallback to desktop)
+  const resolvedScenes = await Promise.all(tour.scenes.map(resolveSceneData));
+
   // scenes: Map<sceneId, { marzipanoScene, data }>
   const scenes = new Map();
 
-  for (const sceneData of tour.scenes) {
+  for (const sceneData of resolvedScenes) {
     const geometry = new Marzipano.CubeGeometry(sceneData.levels);
     const source = Marzipano.ImageUrlSource.fromString(
       `${sceneData.tilesPath}/{z}/{f}/{y}/{x}.jpg`,
@@ -34,18 +61,19 @@ async function init() {
   const engine = new TransitionEngine(viewer, scenes);
   let currentSceneId = tour.defaultSceneId || tour.scenes[0]?.id;
 
-  // Add hotspots for every scene
+  // Add hotspots for every scene (use original tour.scenes for hotspot data)
   for (const sceneData of tour.scenes) {
-    const { marzipanoScene } = scenes.get(sceneData.id);
+    const entry = scenes.get(sceneData.id);
+    if (!entry) continue;
 
     for (const hotspot of sceneData.hotspots) {
       if (hotspot.type === 'link') {
-        NavHotspot.create(marzipanoScene, hotspot, (h) => {
+        NavHotspot.create(entry.marzipanoScene, hotspot, (h) => {
           engine.navigate(currentSceneId, h);
           currentSceneId = h.targetSceneId;
         });
       } else if (hotspot.type === 'info') {
-        InfoHotspot.create(marzipanoScene, hotspot);
+        InfoHotspot.create(entry.marzipanoScene, hotspot);
       }
     }
   }

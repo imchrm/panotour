@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTour } from '../../store/tourStore';
 import { exportTour } from '../../lib/exporter';
-import { downloadTourJson, downloadZip } from '../../lib/zipper';
+import { downloadTourJson, downloadZip, exportToFolder, hasFolderExport } from '../../lib/zipper';
 import styles from './ExportButton.module.css';
 
 export function ExportButton() {
@@ -25,6 +25,19 @@ export function ExportButton() {
     }
   };
 
+  const handleFolder = async () => {
+    if (disabled || busy) return;
+    setBusy(true);
+    try {
+      await exportToFolder(exportTour(state.tour));
+    } catch (err: unknown) {
+      if ((err as { name?: string })?.name !== 'AbortError') throw err;
+      // user cancelled picker — do nothing
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className={styles.group}>
       <button
@@ -42,6 +55,14 @@ export function ExportButton() {
         title="Download ZIP archive"
       >
         {busy ? '…' : '↓ ZIP'}
+      </button>
+      <button
+        className={styles.btn}
+        onClick={handleFolder}
+        disabled={disabled || busy}
+        title={hasFolderExport() ? 'Export to folder' : 'Export to folder (ZIP fallback)'}
+      >
+        {busy ? '…' : '→ Folder'}
       </button>
     </div>
   );
