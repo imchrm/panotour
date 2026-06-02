@@ -58,3 +58,35 @@
   height: 14px;
   cursor: pointer;
 }
+
+.hiddenInput {
+  display: none;
+}
+
+.manifestBtn {
+  width: 100%;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-bottom: 5px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.manifestBtn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.levelsOk {
+  font-size: 11px;
+  color: #4caf50;
+}
+
+.levelsWarn {
+  font-size: 11px;
+  color: var(--text-muted);
+}

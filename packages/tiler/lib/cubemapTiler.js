@@ -7,6 +7,10 @@ const sharp = require('sharp');
 const JPEG_QUALITY = 85;
 const PREVIEW_SIZE = 256;
 
+// Map face index → Marzipano face letter (used in tile URL template {f})
+// Index order matches faceDir() above: 0=+X 1=-X 2=+Y 3=-Y 4=+Z 5=-Z
+const FACE_NAMES = ['r', 'l', 'u', 'd', 'f', 'b'];
+
 // Map (face, u, v) → unnormalized direction vector.
 // u ∈ [-1, 1]: left → right within the face image.
 // v ∈ [-1, 1]: top → bottom within the face image.
@@ -100,7 +104,7 @@ async function writeFaceTiles(faceBuf, projectedSize, ch, levelDir, faceIdx, tar
       const w    = Math.min(tileSize, targetSize - left);
       const h    = Math.min(tileSize, targetSize - top);
 
-      const tileDir = path.join(levelDir, String(faceIdx), String(ty));
+      const tileDir = path.join(levelDir, FACE_NAMES[faceIdx], String(ty));
       fs.mkdirSync(tileDir, { recursive: true });
 
       await sharp(buf, { raw: { width: targetSize, height: targetSize, channels: ch } })
