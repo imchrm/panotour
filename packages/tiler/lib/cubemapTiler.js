@@ -156,7 +156,7 @@ async function tileScene(inputPath, targets, onProgress) {
 
     for (let li = 0; li < levels.length; li++) {
       const { size, tileSize } = levels[li];
-      const levelDir = path.join(outputDir, String(li + 1));
+      const levelDir = path.join(outputDir, String(li));
 
       for (let f = 0; f < 6; f++) {
         onProgress && onProgress(`${prefix}Level ${li + 1}/${levels.length}, face ${f + 1}/6`);
