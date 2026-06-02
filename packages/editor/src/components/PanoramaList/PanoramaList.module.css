@@ -82,6 +82,33 @@
   font-size: 13px;
 }
 
+.starBtn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0.4;
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.starBtn.starActive {
+  color: #f0b429;
+  opacity: 1;
+}
+
+.item:hover .starBtn {
+  opacity: 1;
+}
+
+.starBtn:hover {
+  color: #f0b429;
+}
+
 .deleteBtn {
   background: none;
   border: none;
