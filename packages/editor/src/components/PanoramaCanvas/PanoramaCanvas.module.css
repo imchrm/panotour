@@ -39,3 +39,35 @@
   white-space: nowrap;
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
+
+/* Hotspot markers — created imperatively, must use :global */
+:global(.editor-hs) {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: transform 0.12s;
+  box-sizing: border-box;
+}
+
+:global(.editor-hs:hover) {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+:global(.editor-hs--link) {
+  background: rgba(255, 200, 0, 0.25);
+  border: 2px solid rgba(255, 200, 0, 0.9);
+}
+
+:global(.editor-hs--info) {
+  background: rgba(79, 156, 249, 0.25);
+  border: 2px solid #4f9cf9;
+}
+
+:global(.editor-hs--active) {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  transform: translate(-50%, -50%) scale(1.25);
+}
+

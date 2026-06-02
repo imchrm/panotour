@@ -2,8 +2,10 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { readdirSync, statSync, readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 
-const VIEWER_DIR = resolve(__dirname, '../../packages/viewer');
+// __dirname is not available in ESM ("type":"module") — derive it from import.meta.url
+const VIEWER_DIR = fileURLToPath(new URL('../../packages/viewer', import.meta.url));
 const VIEWER_PREFIX = '/viewer/';
 
 const MIME: Record<string, string> = {

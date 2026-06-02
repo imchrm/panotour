@@ -61,25 +61,38 @@ export function PanoramaList() {
         {scenes.length === 0 && (
           <li className={styles.empty}>No scenes. Add a panorama to start.</li>
         )}
-        {scenes.map((scene) => (
-          <li
-            key={scene.id}
-            className={`${styles.item} ${state.activeSceneId === scene.id ? styles.active : ''}`}
-            onClick={() => dispatch({ type: 'SET_ACTIVE_SCENE', id: scene.id })}
-          >
-            <span className={styles.itemTitle}>{scene.title}</span>
-            <button
-              className={styles.deleteBtn}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(scene.id, scene.panoramaObjectUrl);
-              }}
-              title="Delete scene"
+        {scenes.map((scene) => {
+          const isDefault = state.tour.defaultSceneId === scene.id;
+          return (
+            <li
+              key={scene.id}
+              className={`${styles.item} ${state.activeSceneId === scene.id ? styles.active : ''}`}
+              onClick={() => dispatch({ type: 'SET_ACTIVE_SCENE', id: scene.id })}
             >
-              &times;
-            </button>
-          </li>
-        ))}
+              <button
+                className={`${styles.starBtn} ${isDefault ? styles.starActive : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dispatch({ type: 'SET_DEFAULT_SCENE', id: scene.id });
+                }}
+                title={isDefault ? 'Default scene' : 'Set as default scene'}
+              >
+                {isDefault ? '★' : '☆'}
+              </button>
+              <span className={styles.itemTitle}>{scene.title}</span>
+              <button
+                className={styles.deleteBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(scene.id, scene.panoramaObjectUrl);
+                }}
+                title="Delete scene"
+              >
+                &times;
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
