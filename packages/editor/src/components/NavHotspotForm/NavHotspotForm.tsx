@@ -1,6 +1,7 @@
 import { useTour } from '../../store/tourStore';
 import { type NavHotspot } from '../../store/types';
 import styles from '../SceneSettings/SceneSettings.module.css';
+import formStyles from './NavHotspotForm.module.css';
 
 interface Props {
   hotspot: NavHotspot;
@@ -16,7 +17,14 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
     dispatch({ type: 'UPDATE_HOTSPOT', sceneId, id: hotspot.id, patch });
   }
 
+  function applyCapture() {
+    if (!state.capturedView) return;
+    const { yaw, pitch, fov } = state.capturedView;
+    update({ targetYaw: yaw, targetPitch: pitch, targetFov: fov });
+  }
+
   const otherScenes = state.tour.scenes.filter((s) => s.id !== sceneId);
+  const cv = state.capturedView;
 
   return (
     <div className={styles.panel}>
@@ -34,6 +42,23 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
           ))}
         </select>
       </div>
+
+      <div className={styles.sectionTitle}>Arrival direction</div>
+      {cv ? (
+        <div className={formStyles.captureRow}>
+          <span className={formStyles.captureHint}>
+            Captured: {(cv.yaw / RAD).toFixed(1)}&deg; / {(cv.pitch / RAD).toFixed(1)}&deg; / {(cv.fov / RAD).toFixed(0)}&deg;
+          </span>
+          <button className={formStyles.applyBtn} onClick={applyCapture}>
+            Apply
+          </button>
+        </div>
+      ) : (
+        <div className={formStyles.captureHint}>
+          Navigate to target scene, position camera, click &quot;Capture view&quot; on canvas.
+        </div>
+      )}
+
       <div className={styles.field}>
         <label className={styles.label}>Target Yaw (deg)</label>
         <input
@@ -41,7 +66,7 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
           type="number"
           step="1"
           defaultValue={+(hotspot.targetYaw / RAD).toFixed(2)}
-          key={`ty-${hotspot.id}`}
+          key={`ty-${hotspot.id}-${hotspot.targetYaw}`}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
             if (!isNaN(v)) update({ targetYaw: v * RAD });
@@ -55,7 +80,7 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
           type="number"
           step="1"
           defaultValue={+(hotspot.targetPitch / RAD).toFixed(2)}
-          key={`tp-${hotspot.id}`}
+          key={`tp-${hotspot.id}-${hotspot.targetPitch}`}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
             if (!isNaN(v)) update({ targetPitch: v * RAD });
@@ -69,14 +94,13 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
           type="number"
           step="1"
           defaultValue={+(hotspot.targetFov / RAD).toFixed(2)}
-          key={`tf-${hotspot.id}`}
+          key={`tf-${hotspot.id}-${hotspot.targetFov}`}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
             if (!isNaN(v)) update({ targetFov: v * RAD });
           }}
         />
       </div>
-      {/* TODO: "Copy current view" button — requires access to the live Marzipano view ref */}
     </div>
   );
 }

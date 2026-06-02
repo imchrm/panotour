@@ -5,11 +5,18 @@ export interface EditorScene extends Scene {
   panoramaObjectUrl?: string;
 }
 
+interface CapturedView {
+  yaw: number;
+  pitch: number;
+  fov: number;
+}
+
 interface EditorState {
   tour: { version: string; defaultSceneId: string; scenes: EditorScene[] };
   activeSceneId: string | null;
   activeHotspotId: string | null;
   placingHotspot: false | 'link' | 'info';
+  capturedView: CapturedView | null;
 }
 
 type Action =
@@ -23,13 +30,15 @@ type Action =
   | { type: 'DELETE_HOTSPOT'; sceneId: string; id: string }
   | { type: 'SET_ACTIVE_HOTSPOT'; id: string | null }
   | { type: 'START_PLACING_HOTSPOT'; hotspotType: 'link' | 'info' }
-  | { type: 'CANCEL_PLACING_HOTSPOT' };
+  | { type: 'CANCEL_PLACING_HOTSPOT' }
+  | { type: 'CAPTURE_VIEW'; view: CapturedView };
 
 const initialState: EditorState = {
   tour: { version: '1.0', defaultSceneId: '', scenes: [] },
   activeSceneId: null,
   activeHotspotId: null,
   placingHotspot: false,
+  capturedView: null,
 };
 
 function reducer(state: EditorState, action: Action): EditorState {
@@ -109,6 +118,8 @@ function reducer(state: EditorState, action: Action): EditorState {
       return { ...state, placingHotspot: action.hotspotType, activeHotspotId: null };
     case 'CANCEL_PLACING_HOTSPOT':
       return { ...state, placingHotspot: false };
+    case 'CAPTURE_VIEW':
+      return { ...state, capturedView: action.view };
     default:
       return state;
   }

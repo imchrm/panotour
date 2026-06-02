@@ -40,6 +40,44 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+.toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.captureBtn {
+  pointer-events: all;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.captureBtn:hover {
+  background: rgba(0, 0, 0, 0.85);
+  border-color: var(--accent);
+}
+
+.viewInfo {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Hotspot markers — created imperatively, must use :global */
 :global(.editor-hs) {
   width: 28px;
