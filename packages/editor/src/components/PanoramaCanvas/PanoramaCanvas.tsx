@@ -9,6 +9,7 @@ export function PanoramaCanvas() {
   const viewerRef = useRef<any>(null);
   const sceneRef = useRef<any>(null);
   const viewRef = useRef<any>(null);
+  const hotspotHandlesRef = useRef<any[]>([]);
 
   const activeScene = state.tour.scenes.find((s) => s.id === state.activeSceneId);
 
@@ -21,11 +22,18 @@ export function PanoramaCanvas() {
     return () => {
       viewer.destroy();
       viewerRef.current = null;
+      sceneRef.current = null;
+      viewRef.current = null;
     };
   }, []);
 
+  // Create Marzipano scene when panorama URL changes
   useEffect(() => {
-    if (!viewerRef.current || !activeScene?.panoramaObjectUrl) return;
+    if (!viewerRef.current || !activeScene?.panoramaObjectUrl) {
+      sceneRef.current = null;
+      viewRef.current = null;
+      return;
+    }
     const { yaw, pitch, fov } = activeScene.initialView;
     const geometry = new Marzipano.EquirectGeometry([{ width: 4000 }]);
     const source = Marzipano.ImageUrlSource.fromString(activeScene.panoramaObjectUrl);
@@ -36,6 +44,36 @@ export function PanoramaCanvas() {
     sceneRef.current = scene;
     viewRef.current = view;
   }, [activeScene?.panoramaObjectUrl]);
+
+  // Sync hotspot markers to the Marzipano scene
+  useEffect(() => {
+    if (!sceneRef.current) return;
+    const container = sceneRef.current.hotspotContainer();
+
+    // Destroy previous markers
+    hotspotHandlesRef.current.forEach((handle) => {
+      try { container.destroyHotspot(handle); } catch { /* scene may already be gone */ }
+    });
+    hotspotHandlesRef.current = [];
+
+    if (!activeScene) return;
+
+    activeScene.hotspots.forEach((hotspot) => {
+      const el = document.createElement('div');
+      const isActive = hotspot.id === state.activeHotspotId;
+      el.className = [
+        'editor-hs',
+        `editor-hs--${hotspot.type}`,
+        isActive ? 'editor-hs--active' : '',
+      ].filter(Boolean).join(' ');
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dispatch({ type: 'SET_ACTIVE_HOTSPOT', id: hotspot.id });
+      });
+      const handle = container.createHotspot(el, { yaw: hotspot.yaw, pitch: hotspot.pitch });
+      hotspotHandlesRef.current.push(handle);
+    });
+  }, [activeScene, state.activeHotspotId]);
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!state.placingHotspot || !viewRef.current || !containerRef.current) return;

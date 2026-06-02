@@ -1,6 +1,21 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .group {
   display: flex;
   gap: 8px;
+}
+
+.error {
+  font-size: 11px;
+  color: var(--danger, #e05252);
+  max-width: 320px;
+  text-align: right;
+  line-height: 1.4;
 }
 
 .btn {
