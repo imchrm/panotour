@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Marzipano from 'marzipano';
 import { useTour } from '../../store/tourStore';
 import styles from './PanoramaCanvas.module.css';
+
+const RAD = Math.PI / 180;
 
 export function PanoramaCanvas() {
   const { state, dispatch } = useTour();
@@ -10,6 +12,7 @@ export function PanoramaCanvas() {
   const sceneRef = useRef<any>(null);
   const viewRef = useRef<any>(null);
   const hotspotHandlesRef = useRef<any[]>([]);
+  const [viewInfo, setViewInfo] = useState<{ yaw: number; pitch: number; fov: number } | null>(null);
 
   const activeScene = state.tour.scenes.find((s) => s.id === state.activeSceneId);
 
@@ -32,6 +35,7 @@ export function PanoramaCanvas() {
     if (!viewerRef.current || !activeScene?.panoramaObjectUrl) {
       sceneRef.current = null;
       viewRef.current = null;
+      setViewInfo(null);
       return;
     }
     const { yaw, pitch, fov } = activeScene.initialView;
@@ -43,6 +47,16 @@ export function PanoramaCanvas() {
     scene.switchTo();
     sceneRef.current = scene;
     viewRef.current = view;
+
+    // Poll current view for display and capture
+    let animId: number;
+    function pollView() {
+      const params = view.parameters();
+      setViewInfo({ yaw: params.yaw, pitch: params.pitch, fov: params.fov });
+      animId = requestAnimationFrame(pollView);
+    }
+    animId = requestAnimationFrame(pollView);
+    return () => cancelAnimationFrame(animId);
   }, [activeScene?.panoramaObjectUrl]);
 
   // Sync hotspot markers to the Marzipano scene
@@ -117,6 +131,12 @@ export function PanoramaCanvas() {
   const hasScene = !!activeScene;
   const hasUrl = !!activeScene?.panoramaObjectUrl;
 
+  function handleCapture() {
+    if (!viewRef.current) return;
+    const { yaw, pitch, fov } = viewRef.current.parameters();
+    dispatch({ type: 'CAPTURE_VIEW', view: { yaw, pitch, fov } });
+  }
+
   return (
     <div className={styles.wrapper}>
       <div
@@ -133,6 +153,16 @@ export function PanoramaCanvas() {
       {state.placingHotspot && (
         <div className={styles.overlay}>
           Click to place &middot; Esc to cancel
+        </div>
+      )}
+      {viewInfo && (
+        <div className={styles.toolbar}>
+          <button className={styles.captureBtn} onClick={handleCapture} title="Save current view for use as hotspot target arrival">
+            Capture view
+          </button>
+          <div className={styles.viewInfo}>
+            {(viewInfo.yaw / RAD).toFixed(1)}&deg; / {(viewInfo.pitch / RAD).toFixed(1)}&deg; / {(viewInfo.fov / RAD).toFixed(0)}&deg;
+          </div>
         </div>
       )}
     </div>
