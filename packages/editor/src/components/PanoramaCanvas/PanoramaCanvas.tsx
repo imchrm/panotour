@@ -99,6 +99,13 @@ export function PanoramaCanvas() {
     if (!state.activeSceneId) return;
     const id = `hotspot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     if (state.placingHotspot === 'link') {
+      // Pre-fill arrival direction: flip yaw 180° so the viewer arrives
+      // looking back at the entrance (the default "entered through the door" feel).
+      // The checkbox in HotspotPanel controls this; flip keeps yaw in [-π, π].
+      const rawFlipped = coords.yaw + Math.PI;
+      const arrivalYaw = state.flipArrivalYaw
+        ? (rawFlipped > Math.PI ? rawFlipped - 2 * Math.PI : rawFlipped)
+        : coords.yaw;
       dispatch({
         type: 'ADD_HOTSPOT',
         sceneId: state.activeSceneId,
@@ -108,8 +115,8 @@ export function PanoramaCanvas() {
           yaw: coords.yaw,
           pitch: coords.pitch,
           targetSceneId: '',
-          targetYaw: 0,
-          targetPitch: 0,
+          targetYaw: arrivalYaw,
+          targetPitch: coords.pitch,
           targetFov: Math.PI / 2,
         },
       });
