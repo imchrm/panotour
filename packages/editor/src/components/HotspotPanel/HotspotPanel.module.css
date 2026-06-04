@@ -41,6 +41,28 @@
   opacity: 0.85;
 }
 
+.flipRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.flipLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.flipLabel input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+}
+
 .list {
   list-style: none;
   padding: 4px 0;

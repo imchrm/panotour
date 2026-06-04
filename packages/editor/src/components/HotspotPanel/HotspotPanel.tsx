@@ -33,6 +33,16 @@ export function HotspotPanel() {
           </button>
         </div>
       </div>
+      <div className={styles.flipRow}>
+        <label className={styles.flipLabel}>
+          <input
+            type="checkbox"
+            checked={state.flipArrivalYaw}
+            onChange={() => dispatch({ type: 'TOGGLE_FLIP_ARRIVAL_YAW' })}
+          />
+          &nbsp;Auto-flip arrival yaw (+180&deg;)
+        </label>
+      </div>
       <ul className={styles.list}>
         {activeScene.hotspots.length === 0 && (
           <li className={styles.empty}>No hotspots. Click + to place one.</li>

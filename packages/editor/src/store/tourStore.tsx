@@ -17,6 +17,7 @@ interface EditorState {
   activeHotspotId: string | null;
   placingHotspot: false | 'link' | 'info';
   capturedView: CapturedView | null;
+  flipArrivalYaw: boolean;
 }
 
 type Action =
@@ -31,7 +32,8 @@ type Action =
   | { type: 'SET_ACTIVE_HOTSPOT'; id: string | null }
   | { type: 'START_PLACING_HOTSPOT'; hotspotType: 'link' | 'info' }
   | { type: 'CANCEL_PLACING_HOTSPOT' }
-  | { type: 'CAPTURE_VIEW'; view: CapturedView };
+  | { type: 'CAPTURE_VIEW'; view: CapturedView }
+  | { type: 'TOGGLE_FLIP_ARRIVAL_YAW' };
 
 const initialState: EditorState = {
   tour: { version: '1.0', defaultSceneId: '', scenes: [] },
@@ -39,6 +41,7 @@ const initialState: EditorState = {
   activeHotspotId: null,
   placingHotspot: false,
   capturedView: null,
+  flipArrivalYaw: true,
 };
 
 function reducer(state: EditorState, action: Action): EditorState {
@@ -120,6 +123,8 @@ function reducer(state: EditorState, action: Action): EditorState {
       return { ...state, placingHotspot: false };
     case 'CAPTURE_VIEW':
       return { ...state, capturedView: action.view };
+    case 'TOGGLE_FLIP_ARRIVAL_YAW':
+      return { ...state, flipArrivalYaw: !state.flipArrivalYaw };
     default:
       return state;
   }
