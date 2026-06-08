@@ -3,8 +3,11 @@ import { InfoHotspot } from './hotspots/InfoHotspot.js';
 import { TransitionEngine } from './transitions/TransitionEngine.js';
 
 function isMobile() {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-    || navigator.maxTouchPoints > 1;
+  const mobileUA = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // maxTouchPoints > 1 alone is unreliable: Windows touchscreen monitors
+  // report 10 touch points on desktop. Require small screen as well.
+  const touchSmall = navigator.maxTouchPoints > 1 && window.screen.width <= 768;
+  return mobileUA || touchSmall;
 }
 
 async function resolveSceneData(sceneData) {
