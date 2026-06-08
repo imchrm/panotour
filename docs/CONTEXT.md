@@ -27,8 +27,8 @@
 ### Editor (`packages/editor/`)
 | Слой | Технология |
 |---|---|
-| UI фреймворк | React 18 + TypeScript |
-| Сборка | Vite 5 |
+| UI фреймворк | React 19 + TypeScript 6 |
+| Сборка | Vite 8 |
 | Стили | CSS Modules |
 | Превью панорамы | Marzipano (встроен в редактор для позиционирования хотспотов) |
 | Хранение состояния | React Context + useReducer |
@@ -46,7 +46,7 @@
 | Слой | Технология |
 |---|---|
 | Runtime | Node.js 20+ |
-| Нарезка | `panorama-to-cubemap` + `sharp` |
+| Нарезка | Собственная обратная проекция equirectangular→куб + `sharp` |
 | Интерфейс | CLI (`node tiler.js --input pano.jpg --output ./tiles/scene-01`) |
 
 ---
@@ -86,7 +86,7 @@ panotour/
       marzipano.js            # Библиотека (не модифицируется)
       transitions/
         TransitionEngine.js   # Zoom + Move + Fade оркестрация
-        easing.js             # easeInOutQuad, easeOutCubic
+        easing.js             # easeInOutQuad, easeOutCubic, easeInQuad
       hotspots/
         NavHotspot.js         # Хотспот перехода между сценами
         InfoHotspot.js        # Хотспот вызова InfoPanel
@@ -100,7 +100,7 @@ panotour/
     tiler/
       tiler.js                # CLI точка входа
       lib/
-        cubemapTiler.js       # Нарезка через panorama-to-cubemap + sharp
+        cubemapTiler.js       # Собственная обратная проекция + sharp; FACE_NAMES=['r','l','u','d','f','b']
         manifest.js           # Генерация манифеста уровней для Marzipano
       package.json
 
@@ -173,12 +173,14 @@ viewer читает. Схема расширяется добавлением п
 
 ```js
 // transitions/TransitionEngine.js
-const TRANSITION = {
-  ZOOM_IN_FOV:    0.5236,   // ~30 deg — FOV при приближении к хотспоту
-  NORMAL_FOV:     1.5708,   // ~90 deg — стандартный FOV
-  ZOOM_DURATION:  600,      // мс — анимация zoom перед переходом
-  FADE_DURATION:  400,      // мс — crossfade между сценами
-  LAND_DURATION:  500,      // мс — zoom-out после приземления в новой сцене
+const T = {
+  WIDE_FOV:      1.7453,  // ~100° — кратковременное расширение FOV ("вдох")
+  NORMAL_FOV:    1.5708,  // ~90°  — стандартный FOV
+  ZOOM_IN_FOV:   0.3491,  // ~20°  — агрессивный zoom (ощущение движения)
+  INHALE_MS:     80,       // мс — фаза вдоха
+  RUSH_MS:       520,      // мс — фаза рывка
+  FADE_DURATION: 280,      // мс — crossfade между сценами
+  LAND_DURATION: 650,      // мс — zoom-out с easeOutCubic (приземление)
 };
 ```
 
@@ -227,7 +229,7 @@ scene.hotspotContainer().createHotspot(domElement, { yaw, pitch });
 
 ### Фаза 2 — Кастомные переходы
 - `TransitionEngine`: Zoom-in к хотспоту → Fade → Zoom-out в новой сцене
-- `easing.js`: easeInOutQuad, easeOutCubic
+- `easing.js`: easeInOutQuad, easeOutCubic, easeInQuad
 
 ### Фаза 3 — InfoPanel
 - Информационные хотспоты (`type: "info"`)
@@ -296,15 +298,17 @@ tiles/scene-01/
 из тех же буферов нарезает два независимых набора тайлов. Дополнительного времени
 на проекцию не тратится, только на resize + запись мобильных тайлов.
 
-**Порядок граней (f в URL):**
-| f | Направление | Центр панорамы |
+**Порядок граней (f в URL — буквенные коды Marzipano):**
+| f    | Направление | Центр панорамы |
 |---|---|---|
-| 0 | +X (правая грань)      | lon=+90° |
-| 1 | -X (левая грань)       | lon=-90° |
-| 2 | +Y (верхняя грань)     | lat=+90° |
-| 3 | -Y (нижняя грань)      | lat=-90° |
-| 4 | +Z (фронтальная грань) | lon=0° — центр equirectangular |
-| 5 | -Z (задняя грань)      | lon=±180° |
+| `r` | +X (правая грань)      | lon=+90° |
+| `l` | -X (левая грань)       | lon=-90° |
+| `u` | +Y (верхняя грань)     | lat=+90° |
+| `d` | -Y (нижняя грань)      | lat=-90° |
+| `f` | +Z (фронтальная грань) | lon=0° — центр equirectangular |
+| `b` | -Z (задняя грань)      | lon=±180° |
+
+**z — 0-based:** z=0 — fallback (256×256, загружается первым), z=N — максимальное качество.
 
 **Desktop — уровни по ширине входного изображения:**
 | Ширина | faceSize | Уровни (size / tileSize) |
@@ -350,9 +354,14 @@ EditorState {
   activeSceneId: string | null
   activeHotspotId: string | null
   placingHotspot: false | 'link' | 'info'
+  capturedView: { yaw, pitch, fov } | null  // захват камеры ("Capture view")
+  flipArrivalYaw: boolean                    // авто-разворот targetYaw на 180° (по умолчанию true)
 }
 ```
 `EditorScene` extends `Scene` + `panoramaObjectUrl?: string` (Object URL загруженного файла).
+13 actions: ADD/UPDATE/DELETE_SCENE, SET_DEFAULT_SCENE, SET_ACTIVE_SCENE,
+ADD/UPDATE/DELETE_HOTSPOT, SET_ACTIVE_HOTSPOT, START/CANCEL_PLACING_HOTSPOT,
+CAPTURE_VIEW, TOGGLE_FLIP_ARRIVAL_YAW.
 
 **Поток добавления хотспота:**
 1. Нажать "+ Nav" / "+ Info" → `START_PLACING_HOTSPOT`
@@ -364,9 +373,7 @@ EditorState {
 
 **Экспорт (`src/lib/`):**
 - `exporter.ts` — `exportTour()` снимает `panoramaObjectUrl` с EditorScene, возвращает чистый `TourData`
-- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip); место для viewer-файлов зарезервировано
-
-**Не реализовано:** визуальные маркеры хотспотов на canvas.
+- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip + 9 viewer-файлов), `exportToFolder()` (File System Access API, fallback на ZIP для Firefox)
 
 ---
 
@@ -387,7 +394,7 @@ packages/viewer/
     InfoPanel.js              — DOM-панель: текст + фото + YouTube/video
   transitions/
     TransitionEngine.js       — оркестрация Zoom + Fade + Land
-    easing.js                 — easeInOutQuad, easeOutCubic
+    easing.js                 — easeInOutQuad, easeOutCubic, easeInQuad
   tour.json                   — placeholder для разработки
 ```
 
@@ -400,13 +407,16 @@ packages/viewer/
 
 **TransitionEngine — три фазы перехода:**
 ```
-t=0:    from.lookTo(hotspot yaw/pitch, ZOOM_IN_FOV=0.52, duration=600ms)
-t=300:  to.view.setParameters(targetYaw/pitch, ZOOM_IN_FOV)
-        to.switchTo(FADE_DURATION=400ms)
-t=700:  to.lookTo(targetYaw/pitch/fov, LAND_DURATION=500ms)
-t=1200: _busy = false
+t=0:    from.lookTo(hotspot, WIDE_FOV=1.75, 80ms)            // вдох: FOV 90°→100°
+t=80:   from.lookTo(hotspot, ZOOM_IN_FOV=0.35, 520ms)        // рывок: FOV 100°→20°
+t=444:  to.view.setParameters(targetYaw/pitch, ZOOM_IN_FOV)
+        to.switchTo(FADE_DURATION=280ms)                       // fade (на 70% рывка)
+t=724:  animateFov(ZOOM_IN→targetFov, 650ms, easeOutCubic)    // приземление: FOV 20°→90°
+t=1374: _busy = false
 ```
-Использует `setTimeout` (не Promise-цепочки) — Marzipano не имеет колбэков завершения анимации.
+Фаза приземления использует `requestAnimationFrame` + `easeOutCubic` (не `lookTo`) —
+это единственное место с RAF, поскольку здесь нет конкурирующей анимации lookTo.
+Остальное — `setTimeout` (Marzipano не имеет колбэков завершения анимации).
 
 **InfoPanel:**
 - Открывается кликом на info-хотспот
@@ -431,12 +441,16 @@ t=1200: _busy = false
 - [x] Создан пакет `tiler` — полностью реализован, флаг `--mobile`
 - [x] Создан пакет `editor` — полностью реализован
 - [x] `src/store/types.ts` — все TypeScript-типы схемы тура
-- [x] `src/store/tourStore.tsx` — Context + useReducer, 9 actions
+- [x] `src/store/tourStore.tsx` — Context + useReducer, 13 actions
 - [x] `PanoramaList` — загрузка файлов, список сцен
-- [x] `PanoramaCanvas` — Marzipano EquirectGeometry, клик → yaw/pitch
-- [x] `SceneSettings` — название сцены, initialView
-- [x] `HotspotPanel` + `NavHotspotForm` + `InfoHotspotForm`
-- [x] `exporter.ts` + `zipper.ts` — сериализация, ZIP-экспорт с viewer-файлами
+- [x] `PanoramaCanvas` — Marzipano EquirectGeometry, клик → yaw/pitch, маркеры хотспотов,
+      overlay с текущим yaw/pitch/fov, кнопка "Capture view"
+- [x] `SceneSettings` — название сцены, initialView, tilesPath, импорт manifest.json
+- [x] `PanoramaList` — ☆/★ кнопка выбора дефолтной сцены
+- [x] `HotspotPanel` — чекбокс "Auto-flip arrival yaw" (по умолчанию включён)
+- [x] `NavHotspotForm` — поля targetYaw/Pitch/Fov, кнопка "Apply" из capturedView
+- [x] `InfoHotspotForm` — поля title, text, imageUrl, videoUrl
+- [x] `exporter.ts` + `zipper.ts` — сериализация, ZIP с viewer-файлами, экспорт в папку
 - [x] Создан пакет `viewer` — полностью реализован
 - [x] Реализован базовый viewer (Фаза 1)
 - [x] Реализован `TransitionEngine` (Фаза 2)
@@ -444,8 +458,14 @@ t=1200: _busy = false
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Протестировать полный цикл: нарезать тестовую панораму tiler-ом, расставить хотспоты
-в редакторе, экспортировать ZIP, развернуть viewer и проверить переходы и InfoPanel.
+Протестировать полный цикл (см. docs/TESTING.md): нарезать тестовую панораму tiler-ом
+(тайлы начинаются с z=0), расставить хотспоты в редакторе (авто-flip включён),
+экспортировать ZIP/папку, развернуть viewer и проверить переходы, InfoPanel, мобильные тайлы.
+
+**Известное ограничение редактора:**
+`PanoramaCanvas` загружает полное equirectangular-изображение как одну текстуру
+(`EquirectGeometry`), без тайлинга. Для больших файлов (8192px+) возможна высокая
+нагрузка на VRAM. Приемлемо для десктопного инструмента; оптимизация — в backlog.
 
 ---
 
@@ -454,8 +474,9 @@ t=1200: _busy = false
 1. `view.screenToCoordinates({x,y})` — **подтверждён** по исходнику `marzipano.js` v0.10.2.
    Реализован в `RectilinearView` и `FlatView`. Используется в `PanoramaCanvas.tsx`.
 2. File System Access API (`showDirectoryPicker`) — поддержка только Chrome/Edge.
-   Для Firefox — только ZIP. Нужен graceful fallback.
-3. Тайлинг в браузере (без Node.js tiler) — возможен через WebAssembly (libvips-wasm),
-   но сложно. Оставить как долгосрочную идею.
+   **Решено:** реализован graceful fallback — в Firefox кнопка "→ Folder" автоматически
+   вызывает `downloadZip()`.
+3. Тайлинг в браузере (без Node.js tiler) — **не планируется** (см. ADR-001):
+   требует COOP/COEP заголовков, что ломает YouTube iframe в InfoPanel.
 4. Лицензия на использование Marzipano внутри редактора: Apache 2.0, коммерческое
    использование разрешено. Проверено.
