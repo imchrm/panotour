@@ -22,24 +22,30 @@ html, body {
 /* Hotspot base */
 .hotspot {
   position: absolute;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-  pointer-events: auto;
+  width: 0;
+  height: 0;
+  pointer-events: none;
   user-select: none;
 }
 
 .hotspot-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 48px;
   height: 48px;
   border-radius: 50%;
+  transform: translate(-50%, -50%);
   transition: transform 0.2s ease, opacity 0.2s ease;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
-.hotspot:hover .hotspot-inner {
-  transform: scale(1.15);
+.hotspot-inner:hover {
+  transform: translate(-50%, -50%) scale(1.15);
 }
 
 /* Navigation hotspot — ring lying flat on the floor */
