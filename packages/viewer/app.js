@@ -33,10 +33,8 @@ async function init() {
   const tour = await fetch('tour.json').then(r => r.json());
 
   const viewerEl = document.getElementById('viewer');
-  // Default controls include ScrollZoomControlMethod and PinchZoomControlMethod.
-  // Marzipano uses velocity+friction dynamics — smooth deceleration, not a hard jump.
   const viewer = new Marzipano.Viewer(viewerEl, {
-    controls: { mouseViewMode: 'drag' },
+    controls: { mouseViewMode: 'drag', scrollZoom: false },
   });
 
   // Resolve mobile tiles for all scenes in parallel (graceful fallback to desktop)
@@ -89,13 +87,51 @@ async function init() {
     defaultEntry.marzipanoScene.switchTo();
   }
 
+  const FOV_MIN = 0.2;   // ~11°
+  const FOV_MAX = 2.094; // ~120°
+
+  // ----- Desktop: scroll-wheel zoom -----
+  // Marzipano's built-in scroll zoom uses velocity+friction dynamics that can
+  // silently fail in some browser/device combinations. This direct handler is
+  // more reliable. fovTarget accumulates wheel deltas; a single RAF loop eases
+  // toward it so mouse wheel and trackpad both feel smooth.
+  let fovTarget = null;
+  let wheelRaf = null;
+
+  function wheelAnimate() {
+    const entry = scenes.get(currentSceneId);
+    if (!entry || fovTarget === null) { wheelRaf = null; return; }
+    const view = entry.marzipanoScene.view();
+    const cur = view.fov();
+    const diff = fovTarget - cur;
+    if (Math.abs(diff) < 0.0005) {
+      view.setFov(fovTarget);
+      fovTarget = null;
+      wheelRaf = null;
+      return;
+    }
+    view.setFov(cur + diff * 0.18);
+    wheelRaf = requestAnimationFrame(wheelAnimate);
+  }
+
+  viewerEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const entry = scenes.get(currentSceneId);
+    if (!entry) return;
+    const view = entry.marzipanoScene.view();
+    const base = fovTarget ?? view.fov();
+    // Cap per-event delta so a single fast notch (deltaY≈100) and continuous
+    // trackpad events (deltaY≈3-8) both produce a proportional zoom step.
+    const capped = Math.max(-50, Math.min(50, e.deltaY));
+    fovTarget = Math.max(FOV_MIN, Math.min(FOV_MAX, base * (1 + capped * 0.0025)));
+    if (!wheelRaf) wheelRaf = requestAnimationFrame(wheelAnimate);
+  }, { passive: false });
+
   // ----- Mobile: native pinch-to-zoom -----
   // Marzipano's built-in PinchZoom via Hammer.js can be intercepted by the
   // browser's native page-zoom on some devices. Capture-phase listeners
   // intercept 2-finger gestures before Hammer.js, giving direct FOV control.
   // 1-finger pan is unaffected (passes through to Marzipano/Hammer.js).
-  const FOV_MIN = 0.2;   // ~11°
-  const FOV_MAX = 2.094; // ~120°
   let pinchDist0 = null;
   let pinchFov0 = null;
 
