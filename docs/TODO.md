@@ -69,6 +69,13 @@
 
 ## Улучшения UX viewer
 
+- [x] **Zoom управление:**
+      — Desktop: колесо мыши (scroll) изменяет FOV
+      — Mobile: щипковый жест двумя пальцами (pinch-to-zoom)
+      Работает из коробки: Marzipano `registerDefaultControls` включает
+      `ScrollZoomControlMethod` и `PinchZoomControlMethod` по умолчанию
+      (если только не передать `controls: { scrollZoom: false }`).
+      Явный код не требуется.
 - [ ] Анимация хотспота: пульсация при idle
 - [ ] Индикатор загрузки сцены во время перехода
 - [ ] Плавное появление хотспотов после завершения перехода

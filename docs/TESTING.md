@@ -361,3 +361,5 @@ viewer читает `tour.json` из своей директории. Убеди
 | Переход срабатывает один раз | `_busy` не сбрасывается | Убедиться что `LAND_DURATION` совпадает с реальной длительностью анимации |
 | InfoPanel не закрывается по Escape | Фокус на другом элементе | Кликнуть по viewer, затем нажать Escape |
 | ZIP не содержит viewer-файлов | Vite-сервер не запущен при экспорте | Убедиться что редактор запущен через `npm run editor`, а не напрямую |
+| Viewer грузит mobile-тайлы на десктопе | Тачскрин-ноутбук: `maxTouchPoints > 1` при `screen.width > 768` | Обновить `app.js` из `packages/viewer/` — исправлено в isMobile() |
+| "No selectable levels in list" | `levels: []` в `tour.json` — manifest не был импортирован в редакторе | В SceneSettings нажать "Load manifest.json", переэкспортировать тур |
