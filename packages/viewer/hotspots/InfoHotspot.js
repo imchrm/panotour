@@ -9,7 +9,7 @@ export class InfoHotspot {
     const el = document.createElement('div');
     el.className = 'hotspot hotspot-info';
     el.setAttribute('data-id', hotspot.id);
-    el.innerHTML = '<div class="hotspot-inner"><span class="hotspot-info-icon">i</span></div>';
+    el.innerHTML = '<div class="hotspot-scale"><div class="hotspot-inner"><span class="hotspot-info-icon">i</span></div></div>';
 
     let panelEl = null;
 
