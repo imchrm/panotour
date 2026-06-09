@@ -117,13 +117,12 @@ async function init() {
   viewerEl.addEventListener('wheel', (e) => {
     e.preventDefault();
     const entry = scenes.get(currentSceneId);
-    if (!entry) return;
+    if (!entry) { console.warn('panotour zoom: no scene entry for', currentSceneId); return; }
     const view = entry.marzipanoScene.view();
     const base = fovTarget ?? view.fov();
-    // Cap per-event delta so a single fast notch (deltaY≈100) and continuous
-    // trackpad events (deltaY≈3-8) both produce a proportional zoom step.
     const capped = Math.max(-50, Math.min(50, e.deltaY));
     fovTarget = Math.max(FOV_MIN, Math.min(FOV_MAX, base * (1 + capped * 0.0025)));
+    console.log('panotour zoom: deltaY=' + e.deltaY + ' fov=' + view.fov().toFixed(4) + ' → target=' + fovTarget.toFixed(4));
     if (!wheelRaf) wheelRaf = requestAnimationFrame(wheelAnimate);
   }, { passive: false });
 
