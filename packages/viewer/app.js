@@ -50,8 +50,12 @@ async function init() {
       { cubeMapPreviewUrl: sceneData.previewUrl }
     );
     const maxSize = sceneData.levels.reduce((m, l) => Math.max(m, l.size), 0);
+    // traditional() uses faceSize to compute minimum FOV (zoom-in limit).
+    // With small tiles (faceSize=1024), minFOV can exceed maxFOV, breaking zoom.
+    // Clamp to at least 4096 so the resolution limiter stays below maxVFOV=100°.
+    const limiterFaceSize = Math.max(maxSize, 4096);
     const limiter = Marzipano.RectilinearView.limit.traditional(
-      maxSize, 100 * Math.PI / 180, 120 * Math.PI / 180
+      limiterFaceSize, 100 * Math.PI / 180, 120 * Math.PI / 180
     );
     const view = new Marzipano.RectilinearView(sceneData.initialView, limiter);
     const marzipanoScene = viewer.createScene({
@@ -117,12 +121,11 @@ async function init() {
   viewerEl.addEventListener('wheel', (e) => {
     e.preventDefault();
     const entry = scenes.get(currentSceneId);
-    if (!entry) { console.warn('panotour zoom: no scene entry for', currentSceneId); return; }
+    if (!entry) return;
     const view = entry.marzipanoScene.view();
     const base = fovTarget ?? view.fov();
     const capped = Math.max(-50, Math.min(50, e.deltaY));
     fovTarget = Math.max(FOV_MIN, Math.min(FOV_MAX, base * (1 + capped * 0.0025)));
-    console.log('panotour zoom: deltaY=' + e.deltaY + ' fov=' + view.fov().toFixed(4) + ' → target=' + fovTarget.toFixed(4));
     if (!wheelRaf) wheelRaf = requestAnimationFrame(wheelAnimate);
   }, { passive: false });
 
