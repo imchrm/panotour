@@ -33,8 +33,10 @@ async function init() {
   const tour = await fetch('tour.json').then(r => r.json());
 
   const viewerEl = document.getElementById('viewer');
+  // scrollZoom: false — disable Marzipano's built-in scroll zoom (zoomDelta=0.001 is too
+  // subtle on trackpads). We attach our own wheel handler below with tuned sensitivity.
   const viewer = new Marzipano.Viewer(viewerEl, {
-    controls: { mouseViewMode: 'drag' },
+    controls: { mouseViewMode: 'drag', scrollZoom: false },
   });
 
   // Resolve mobile tiles for all scenes in parallel (graceful fallback to desktop)
@@ -86,6 +88,17 @@ async function init() {
   if (defaultEntry) {
     defaultEntry.marzipanoScene.switchTo();
   }
+
+  // Scroll zoom: +/- FOV on mouse wheel or trackpad pinch-scroll.
+  // Sensitivity: ~7° per wheel notch (deltaY≈100 in pixel mode).
+  viewerEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const entry = scenes.get(currentSceneId);
+    if (!entry) return;
+    const view = entry.marzipanoScene.view();
+    const px = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY;
+    view.setFov(view.fov() + px * 0.0012);
+  }, { passive: false });
 }
 
 init().catch(err => {
