@@ -22,7 +22,7 @@ export class InfoHotspot {
     marzipanoScene.hotspotContainer().createHotspot(el, {
       yaw: hotspot.yaw,
       pitch: hotspot.pitch,
-    });
+    }, { perspective: { extraTransforms: 'translate(-50%, -50%)' } });
 
     return el;
   }
