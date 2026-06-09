@@ -69,12 +69,13 @@
 
 ## Улучшения UX viewer
 
-- [ ] **Zoom управление:**
-      — Desktop: колесо мыши (scroll) изменяет FOV (приближение/отдаление)
+- [x] **Zoom управление:**
+      — Desktop: колесо мыши (scroll) изменяет FOV
       — Mobile: щипковый жест двумя пальцами (pinch-to-zoom)
-      Marzipano имеет встроенную поддержку обоих через `controls` при создании `Viewer`,
-      но текущая конфигурация использует только `mouseViewMode: 'drag'`. Нужно включить
-      `scrollZoom` и `pinchZoom` и проверить взаимодействие с `RectilinearView.limit`.
+      Работает из коробки: Marzipano `registerDefaultControls` включает
+      `ScrollZoomControlMethod` и `PinchZoomControlMethod` по умолчанию
+      (если только не передать `controls: { scrollZoom: false }`).
+      Явный код не требуется.
 - [ ] Анимация хотспота: пульсация при idle
 - [ ] Индикатор загрузки сцены во время перехода
 - [ ] Плавное появление хотспотов после завершения перехода
