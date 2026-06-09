@@ -92,9 +92,10 @@ export function PanoramaCanvas() {
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!state.placingHotspot || !viewRef.current || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
+    const HALF = 14; // editor-hs is 28×28; offset centers the handle on the click point
     const coords = viewRef.current.screenToCoordinates({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: e.clientX - rect.left - HALF,
+      y: e.clientY - rect.top - HALF,
     });
     if (!state.activeSceneId) return;
     const id = `hotspot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

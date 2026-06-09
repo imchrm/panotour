@@ -35,29 +35,30 @@ html, body {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .hotspot:hover .hotspot-inner {
   transform: scale(1.15);
 }
 
-/* Navigation hotspot */
+/* Navigation hotspot — ring lying flat on the floor */
 .hotspot-nav .hotspot-inner {
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.8);
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 3px solid rgba(255, 255, 255, 0.85);
   animation: pulse 2s ease-in-out infinite;
 }
 
+/* Centre dot — also gets squished by parent scaleY, looks natural */
 .hotspot-nav .hotspot-inner::after {
   content: '';
   display: block;
-  width: 0;
-  height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-bottom: 16px solid rgba(255, 255, 255, 0.9);
-  margin-top: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 /* Info hotspot */

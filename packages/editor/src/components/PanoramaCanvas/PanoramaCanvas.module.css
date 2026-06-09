@@ -83,14 +83,13 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  transform: translate(-50%, -50%);
   cursor: pointer;
   transition: transform 0.12s;
   box-sizing: border-box;
 }
 
 :global(.editor-hs:hover) {
-  transform: translate(-50%, -50%) scale(1.2);
+  transform: scale(1.2);
 }
 
 :global(.editor-hs--link) {
@@ -106,6 +105,6 @@
 :global(.editor-hs--active) {
   outline: 2px solid #fff;
   outline-offset: 2px;
-  transform: translate(-50%, -50%) scale(1.25);
+  transform: scale(1.25);
 }
 
