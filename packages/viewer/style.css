@@ -44,10 +44,10 @@ html, body {
 
 /* Navigation hotspot — ring lying flat on the floor */
 .hotspot-nav .hotspot-inner {
-  width: 56px;
-  height: 56px;
+  width: 112px;
+  height: 112px;
   background: rgba(255, 255, 255, 0.08);
-  border: 3px solid rgba(255, 255, 255, 0.85);
+  border: 6px solid rgba(255, 255, 255, 0.85);
   animation: pulse 2s ease-in-out infinite;
 }
 
