@@ -21,7 +21,7 @@ export class NavHotspot {
     const sx = Math.max(0.25, sinP);
     const sy = Math.max(0.04, sinP * sinP);
     const inner = el.querySelector('.hotspot-inner');
-    inner.style.transform = `scaleX(${sx.toFixed(3)}) scaleY(${sy.toFixed(3)})`;
+    inner.style.transform = `translate(-50%, -50%) scaleX(${sx.toFixed(3)}) scaleY(${sy.toFixed(3)})`;
 
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -31,7 +31,7 @@ export class NavHotspot {
     marzipanoScene.hotspotContainer().createHotspot(el, {
       yaw: hotspot.yaw,
       pitch: hotspot.pitch,
-    }, { perspective: { extraTransforms: 'translate(-50%, -50%)' } });
+    });
 
     return el;
   }
