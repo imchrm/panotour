@@ -33,10 +33,10 @@ async function init() {
   const tour = await fetch('tour.json').then(r => r.json());
 
   const viewerEl = document.getElementById('viewer');
-  // scrollZoom: false — disable Marzipano's built-in scroll zoom (zoomDelta=0.001 is too
-  // subtle on trackpads). We attach our own wheel handler below with tuned sensitivity.
+  // Default controls include ScrollZoomControlMethod and PinchZoomControlMethod.
+  // Marzipano uses velocity+friction dynamics — smooth deceleration, not a hard jump.
   const viewer = new Marzipano.Viewer(viewerEl, {
-    controls: { mouseViewMode: 'drag', scrollZoom: false },
+    controls: { mouseViewMode: 'drag' },
   });
 
   // Resolve mobile tiles for all scenes in parallel (graceful fallback to desktop)
@@ -53,7 +53,7 @@ async function init() {
     );
     const maxSize = sceneData.levels.reduce((m, l) => Math.max(m, l.size), 0);
     const limiter = Marzipano.RectilinearView.limit.traditional(
-      maxSize, 120 * Math.PI / 180
+      maxSize, 100 * Math.PI / 180, 120 * Math.PI / 180
     );
     const view = new Marzipano.RectilinearView(sceneData.initialView, limiter);
     const marzipanoScene = viewer.createScene({
@@ -89,25 +89,13 @@ async function init() {
     defaultEntry.marzipanoScene.switchTo();
   }
 
-  // ----- Desktop: scroll zoom -----
-  // Direct setFov per event — trackpad fires many events continuously,
-  // mouse wheel fires discrete events with larger deltaY (~100).
+  // ----- Mobile: native pinch-to-zoom -----
+  // Marzipano's built-in PinchZoom via Hammer.js can be intercepted by the
+  // browser's native page-zoom on some devices. Capture-phase listeners
+  // intercept 2-finger gestures before Hammer.js, giving direct FOV control.
+  // 1-finger pan is unaffected (passes through to Marzipano/Hammer.js).
   const FOV_MIN = 0.2;   // ~11°
   const FOV_MAX = 2.094; // ~120°
-
-  viewerEl.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const entry = scenes.get(currentSceneId);
-    if (!entry) return;
-    const view = entry.marzipanoScene.view();
-    const px = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY;
-    const delta = Math.sign(px) * Math.min(Math.abs(px) * 0.004, 0.15);
-    view.setFov(Math.max(FOV_MIN, Math.min(FOV_MAX, view.fov() + delta)));
-  }, { passive: false });
-
-  // ----- Mobile: native pinch-to-zoom -----
-  // Intercept 2-finger touches in capture phase (before Marzipano's Hammer.js)
-  // to prevent double-zoom. 1-finger pan still handled by Marzipano.
   let pinchDist0 = null;
   let pinchFov0 = null;
 
