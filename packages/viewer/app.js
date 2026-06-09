@@ -90,14 +90,15 @@ async function init() {
   }
 
   // Scroll zoom: +/- FOV on mouse wheel or trackpad pinch-scroll.
-  // Sensitivity: ~7° per wheel notch (deltaY≈100 in pixel mode).
+  // Cap at 0.15 rad (~8.6°) per event so fast mouse wheel doesn't over-zoom.
   viewerEl.addEventListener('wheel', (e) => {
     e.preventDefault();
     const entry = scenes.get(currentSceneId);
     if (!entry) return;
     const view = entry.marzipanoScene.view();
     const px = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY;
-    view.setFov(view.fov() + px * 0.0012);
+    const delta = Math.sign(px) * Math.min(Math.abs(px) * 0.004, 0.15);
+    view.setFov(view.fov() + delta);
   }, { passive: false });
 }
 
