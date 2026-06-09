@@ -63,6 +63,29 @@ async function init() {
     scenes.set(sceneData.id, { marzipanoScene, data: sceneData });
   }
 
+  // ----- zoom state (shared between scroll and pinch handlers) -----
+  const FOV_MIN = 0.2;   // ~11°
+  const FOV_MAX = 2.094; // ~120°
+
+  let zoomTarget = null;
+  let zoomRaf = null;
+
+  function cancelZoom() {
+    if (zoomRaf) { cancelAnimationFrame(zoomRaf); zoomRaf = null; }
+  }
+
+  function smoothFov(view) {
+    cancelZoom();
+    function step() {
+      const cur = view.fov();
+      const diff = zoomTarget - cur;
+      if (Math.abs(diff) < 0.001) { view.setFov(zoomTarget); zoomRaf = null; return; }
+      view.setFov(cur + diff * 0.18); // exponential ease-out: ~160 ms to settle
+      zoomRaf = requestAnimationFrame(step);
+    }
+    zoomRaf = requestAnimationFrame(step);
+  }
+
   const engine = new TransitionEngine(viewer, scenes);
   let currentSceneId = tour.defaultSceneId || tour.scenes[0]?.id;
 
@@ -74,6 +97,8 @@ async function init() {
     for (const hotspot of sceneData.hotspots) {
       if (hotspot.type === 'link') {
         NavHotspot.create(entry.marzipanoScene, hotspot, (h) => {
+          cancelZoom();
+          zoomTarget = null;
           engine.navigate(currentSceneId, h);
           currentSceneId = h.targetSceneId;
         });
@@ -89,17 +114,62 @@ async function init() {
     defaultEntry.marzipanoScene.switchTo();
   }
 
-  // Scroll zoom: +/- FOV on mouse wheel or trackpad pinch-scroll.
-  // Cap at 0.15 rad (~8.6°) per event so fast mouse wheel doesn't over-zoom.
+  // ----- Desktop: scroll wheel / trackpad zoom -----
+  // Smooth lerp animation instead of direct setFov jump.
   viewerEl.addEventListener('wheel', (e) => {
     e.preventDefault();
     const entry = scenes.get(currentSceneId);
     if (!entry) return;
     const view = entry.marzipanoScene.view();
+    if (zoomTarget === null) zoomTarget = view.fov();
     const px = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY;
     const delta = Math.sign(px) * Math.min(Math.abs(px) * 0.004, 0.15);
-    view.setFov(view.fov() + delta);
+    zoomTarget = Math.max(FOV_MIN, Math.min(FOV_MAX, zoomTarget + delta));
+    smoothFov(view);
   }, { passive: false });
+
+  // ----- Mobile: native pinch-to-zoom (capture phase, before Hammer.js) -----
+  // Using capture phase + stopPropagation prevents Marzipano's built-in PinchZoom
+  // from running simultaneously and causing double-zoom.
+  let pinchDist0 = null;
+  let pinchFov0 = null;
+
+  viewerEl.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      e.stopPropagation();
+      e.preventDefault();
+      const t0 = e.touches[0], t1 = e.touches[1];
+      pinchDist0 = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+      const entry = scenes.get(currentSceneId);
+      pinchFov0 = entry ? entry.marzipanoScene.view().fov() : null;
+      zoomTarget = pinchFov0;
+      cancelZoom();
+    } else {
+      pinchDist0 = null;
+      pinchFov0 = null;
+    }
+  }, { capture: true, passive: false });
+
+  viewerEl.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 2 || pinchDist0 === null || pinchFov0 === null) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const t0 = e.touches[0], t1 = e.touches[1];
+    const dist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+    const newFov = Math.max(FOV_MIN, Math.min(FOV_MAX, pinchFov0 * pinchDist0 / dist));
+    const entry = scenes.get(currentSceneId);
+    if (entry) {
+      zoomTarget = newFov;
+      entry.marzipanoScene.view().setFov(newFov);
+    }
+  }, { capture: true, passive: false });
+
+  viewerEl.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) {
+      pinchDist0 = null;
+      pinchFov0 = null;
+    }
+  }, { capture: true, passive: true });
 }
 
 init().catch(err => {
