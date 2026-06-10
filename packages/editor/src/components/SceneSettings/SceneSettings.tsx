@@ -47,16 +47,18 @@ export function SceneSettings() {
     reader.onload = (e) => {
       try {
         const manifest = JSON.parse(e.target?.result as string) as {
-          id: string;
+          sceneId?: string;
+          id?: string;
           levels: TileLevel[];
         };
-        if (!activeScene || !manifest.id || !Array.isArray(manifest.levels)) return;
+        const sceneId = manifest.sceneId ?? manifest.id;
+        if (!activeScene || !sceneId || !Array.isArray(manifest.levels)) return;
         dispatch({
           type: 'UPDATE_SCENE',
           id: activeScene.id,
           patch: {
-            tilesPath: `tiles/${manifest.id}`,
-            previewUrl: `tiles/${manifest.id}/preview.jpg`,
+            tilesPath: `tiles/${sceneId}`,
+            previewUrl: `tiles/${sceneId}/preview.jpg`,
             levels: manifest.levels,
           },
         });
