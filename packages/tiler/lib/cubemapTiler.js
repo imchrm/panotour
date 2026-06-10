@@ -165,8 +165,23 @@ async function tileScene(inputPath, targets, onProgress) {
     }
 
     onProgress && onProgress(`${prefix}Writing preview.jpg`);
-    await sharp(faceBuffers[4], { raw: { width: projectedSize, height: projectedSize, channels: ch } })
-      .resize(PREVIEW_SIZE, PREVIEW_SIZE, { kernel: sharp.kernel.lanczos3 })
+    // Marzipano expects a vertical 6-face strip (256×1536) in its default
+    // cubeMapPreviewFaceOrder = "bdflru": back, down, front, left, right, up.
+    // FACE_NAMES indices: r=0 l=1 u=2 d=3 f=4 b=5
+    const PREVIEW_FACE_ORDER = [5, 3, 4, 1, 0, 2]; // b, d, f, l, r, u
+    const resizedFaces = await Promise.all(
+      PREVIEW_FACE_ORDER.map(fi =>
+        sharp(faceBuffers[fi], { raw: { width: projectedSize, height: projectedSize, channels: ch } })
+          .resize(PREVIEW_SIZE, PREVIEW_SIZE, { kernel: sharp.kernel.lanczos3 })
+          .raw()
+          .toBuffer()
+      )
+    );
+    const stripBuf = Buffer.alloc(PREVIEW_SIZE * PREVIEW_SIZE * 6 * ch);
+    for (let i = 0; i < 6; i++) {
+      resizedFaces[i].copy(stripBuf, i * PREVIEW_SIZE * PREVIEW_SIZE * ch);
+    }
+    await sharp(stripBuf, { raw: { width: PREVIEW_SIZE, height: PREVIEW_SIZE * 6, channels: ch } })
       .jpeg({ quality: 80 })
       .toFile(path.join(outputDir, 'preview.jpg'));
   }
