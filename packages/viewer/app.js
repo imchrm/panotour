@@ -91,6 +91,18 @@ async function init() {
     defaultEntry.marzipanoScene.switchTo();
   }
 
+  // Keep --hs-scale in sync with FOV so hotspots scale with zoom.
+  // REF_FOV is the FOV at which scale=1 (hotspot renders at its CSS size).
+  const REF_FOV = Math.PI / 2;
+  (function tickScale() {
+    const entry = scenes.get(currentSceneId);
+    if (entry) {
+      const fov = entry.marzipanoScene.view().fov();
+      viewerEl.style.setProperty('--hs-scale', (REF_FOV / fov).toFixed(4));
+    }
+    requestAnimationFrame(tickScale);
+  })();
+
   const FOV_MIN = 0.2;   // ~11°
   const FOV_MAX = 2.094; // ~120°
 
