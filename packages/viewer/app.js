@@ -76,6 +76,9 @@ async function init() {
     for (const hotspot of sceneData.hotspots) {
       if (hotspot.type === 'link') {
         NavHotspot.create(entry.marzipanoScene, hotspot, (h) => {
+          // Cancel any pending scroll-zoom animation so the old fovTarget
+          // is not applied to the new scene's view during the transition.
+          fovTarget = null;
           engine.navigate(currentSceneId, h);
           currentSceneId = h.targetSceneId;
         });
