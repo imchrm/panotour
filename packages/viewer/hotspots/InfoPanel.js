@@ -1,3 +1,5 @@
+import { t } from '../i18n.js';
+
 export class InfoPanel {
   /**
    * @param {object} content  - InfoContent: { title, text?, imageUrl?, videoUrl? }
@@ -47,7 +49,7 @@ export class InfoPanel {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'info-panel-close';
     closeBtn.textContent = '×';
-    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.setAttribute('aria-label', t('panel.close'));
     panel.appendChild(closeBtn);
 
     overlay.appendChild(panel);

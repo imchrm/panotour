@@ -1,6 +1,7 @@
 import { NavHotspot } from './hotspots/NavHotspot.js';
 import { InfoHotspot } from './hotspots/InfoHotspot.js';
 import { TransitionEngine } from './transitions/TransitionEngine.js';
+import { lang, t } from './i18n.js';
 
 function isMobile() {
   const mobileUA = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -28,6 +29,24 @@ async function resolveSceneData(sceneData) {
     return sceneData;
   }
 }
+
+function exitTour() {
+  window.parent.postMessage({ type: 'TOUR_EXIT' }, '*');
+}
+
+// Exit button — fixed top-left, above viewer
+const exitBtn = document.createElement('button');
+exitBtn.className = 'exit-btn';
+exitBtn.textContent = t('btn.exit');
+exitBtn.addEventListener('click', exitTour);
+document.body.appendChild(exitBtn);
+
+// Global Escape: exit tour only when no info panel is open
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.querySelector('.info-panel-overlay')) {
+    exitTour();
+  }
+});
 
 async function init() {
   const tour = await fetch('tour.json').then(r => r.json());
@@ -184,5 +203,5 @@ async function init() {
 
 init().catch(err => {
   console.error('panotour: failed to load tour', err);
-  document.body.innerHTML = `<div style="color:#fff;padding:20px">Failed to load tour.json: ${err.message}</div>`;
+  document.body.innerHTML = `<div style="color:#fff;padding:20px">${t('error.load')}: ${err.message}</div>`;
 });
