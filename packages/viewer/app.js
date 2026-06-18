@@ -85,7 +85,12 @@ async function init() {
   }
 
   const engine = new TransitionEngine(viewer, scenes);
-  let currentSceneId = tour.defaultSceneId || tour.scenes[0]?.id;
+
+  // Starting scene: ?scene=sceneId URL param → defaultSceneId → first scene
+  const urlSceneId = new URLSearchParams(location.search).get('scene');
+  let currentSceneId = (urlSceneId && scenes.has(urlSceneId))
+    ? urlSceneId
+    : (tour.defaultSceneId || tour.scenes[0]?.id);
 
   // Add hotspots for every scene (use original tour.scenes for hotspot data)
   for (const sceneData of tour.scenes) {
@@ -107,7 +112,26 @@ async function init() {
     }
   }
 
-  // Show default scene
+  // postMessage from kiosk: { type: 'TOUR_NAVIGATE', sceneId, yaw?, pitch?, fov? }
+  // Performs a direct crossfade to the target scene using its initialView
+  // (caller may override yaw/pitch/fov for a specific arrival direction).
+  window.addEventListener('message', (e) => {
+    if (e.data?.type !== 'TOUR_NAVIGATE') return;
+    const targetId = e.data.sceneId;
+    if (!targetId || !scenes.has(targetId) || targetId === currentSceneId) return;
+    const entry = scenes.get(targetId);
+    const iv = entry.data.initialView;
+    fovTarget = null;
+    entry.marzipanoScene.view().setParameters({
+      yaw:   e.data.yaw   ?? iv.yaw,
+      pitch: e.data.pitch ?? iv.pitch,
+      fov:   e.data.fov   ?? iv.fov,
+    });
+    entry.marzipanoScene.switchTo({ transitionDuration: 600 });
+    currentSceneId = targetId;
+  });
+
+  // Show starting scene
   const defaultEntry = scenes.get(currentSceneId);
   if (defaultEntry) {
     defaultEntry.marzipanoScene.switchTo();

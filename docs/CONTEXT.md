@@ -177,11 +177,48 @@ const T = {
   WIDE_FOV:      1.7453,  // ~100° — кратковременное расширение FOV ("вдох")
   NORMAL_FOV:    1.5708,  // ~90°  — стандартный FOV
   ZOOM_IN_FOV:   0.3491,  // ~20°  — агрессивный zoom (ощущение движения)
-  INHALE_MS:     80,       // мс — фаза вдоха
-  RUSH_MS:       520,      // мс — фаза рывка
-  FADE_DURATION: 280,      // мс — crossfade между сценами
-  LAND_DURATION: 650,      // мс — zoom-out с easeOutCubic (приземление)
+  INHALE_MS:     80,      // мс — фаза вдоха
+  RUSH_MS:       520,     // мс — фаза рывка
+  FADE_DURATION: 280,     // мс — crossfade между сценами
 };
+// LAND_DURATION и animateFov удалены: целевая сцена появляется сразу с targetFov.
+```
+
+## Кiosk IPC — контракт
+
+Viewer встраивается как `<iframe>` в Electron-киоск. Все взаимодействия
+только через URL-параметры и `postMessage` — без дополнительных каналов.
+
+### Входящие параметры (URL)
+
+| Параметр | Значения | По умолчанию | Описание |
+|---|---|---|---|
+| `?lang=` | `uz` \| `ru` \| `en` | `ru` | Язык UI (кнопки, подсказки, ошибки) |
+| `?scene=` | любой `sceneId` из `tour.json` | `defaultSceneId` | Начальная сцена при открытии |
+
+Пример: `viewer/index.html?lang=uz&scene=scene-02`
+
+### Входящие сообщения (postMessage → viewer)
+
+```js
+// Перейти к конкретной сцене (прямой crossfade, 600ms)
+window.frames[0].postMessage({
+  type:   'TOUR_NAVIGATE',
+  sceneId: 'scene-02',       // обязательно — id сцены из tour.json
+  yaw:    1.23,              // необязательно — угол прибытия (рад)
+  pitch: -0.05,              // необязательно
+  fov:    1.5707,            // необязательно
+}, '*');
+```
+
+Если `yaw/pitch/fov` не переданы — используется `initialView` целевой сцены.
+Если `sceneId` не найден или совпадает с текущей — сообщение игнорируется.
+
+### Исходящие сообщения (viewer → родительский фрейм)
+
+```js
+// Пользователь нажал кнопку "Выход" или Escape (вне InfoPanel)
+window.parent.postMessage({ type: 'TOUR_EXIT' }, '*');
 ```
 
 ---
@@ -277,7 +314,7 @@ node tiler.js --input ./panos/entrance.jpg --output ./tiles/scene-01 --id scene-
 Генерирует (без `--mobile`):
 ```
 tiles/scene-01/
-  preview.jpg          (256×256, front face +Z)
+  preview.jpg          (256×1536, вертикальный стрип 6 граней: b,d,f,l,r,u)
   {z}/{f}/{y}/{x}.jpg
   manifest.json
 ```
@@ -386,14 +423,15 @@ CAPTURE_VIEW, TOGGLE_FLIP_ARRIVAL_YAW.
 packages/viewer/
   index.html                  — подключает marzipano.js и app.js как module
   app.js                      — загрузка tour.json, инициализация viewer и сцен
-  style.css                   — базовые стили, стили хотспотов и InfoPanel
+  i18n.js                     — словарь uz/ru/en + t(key) + определение lang из URL
+  style.css                   — базовые стили, хотспоты, InfoPanel, exit-кнопка
   marzipano.js                — библиотека (не модифицируется)
   hotspots/
     NavHotspot.js             — хотспот перехода (DOM-элемент с yaw/pitch)
     InfoHotspot.js            — хотспот информации (DOM-элемент)
     InfoPanel.js              — DOM-панель: текст + фото + YouTube/video
   transitions/
-    TransitionEngine.js       — оркестрация Zoom + Fade + Land
+    TransitionEngine.js       — оркестрация Zoom + Fade
     easing.js                 — easeInOutQuad, easeOutCubic, easeInQuad
   tour.json                   — placeholder для разработки
 ```
@@ -403,20 +441,22 @@ packages/viewer/
 2. Для каждой сцены: `CubeGeometry(levels)` + `ImageUrlSource` + `RectilinearView` → `viewer.createScene()`
 3. `TransitionEngine` — создаётся один раз, управляет переходами
 4. Для каждого хотспота сцены: `NavHotspot.create()` или `InfoHotspot.create()`
-5. `defaultEntry.marzipanoScene.switchTo()` — показ стартовой сцены
+5. Стартовая сцена: `?scene=` URL-параметр → `defaultSceneId` → первая сцена в массиве
+6. `startEntry.marzipanoScene.switchTo()` — показ стартовой сцены
 
-**TransitionEngine — три фазы перехода:**
+**TransitionEngine — две фазы перехода (через хотспот):**
 ```
-t=0:    from.lookTo(hotspot, WIDE_FOV=1.75, 80ms)            // вдох: FOV 90°→100°
-t=80:   from.lookTo(hotspot, ZOOM_IN_FOV=0.35, 520ms)        // рывок: FOV 100°→20°
-t=444:  to.view.setParameters(targetYaw/pitch, ZOOM_IN_FOV)
+t=0:    from.lookTo(hotspot, WIDE_FOV=1.75, 80ms)            // вдох: FOV →100°
+t=80:   from.lookTo(hotspot, ZOOM_IN_FOV=0.35, 520ms)        // рывок: FOV →20°
+t=444:  to.view.setParameters(targetYaw/pitch/fov)
         to.switchTo(FADE_DURATION=280ms)                       // fade (на 70% рывка)
-t=724:  animateFov(ZOOM_IN→targetFov, 650ms, easeOutCubic)    // приземление: FOV 20°→90°
-t=1374: _busy = false
+t=724:  _busy = false
 ```
-Фаза приземления использует `requestAnimationFrame` + `easeOutCubic` (не `lookTo`) —
-это единственное место с RAF, поскольку здесь нет конкурирующей анимации lookTo.
-Остальное — `setTimeout` (Marzipano не имеет колбэков завершения анимации).
+Целевая сцена появляется сразу с `targetFov` (из hotspot.targetFov) — без фазы
+приземления, чтобы не создавать ощущение отступления назад.
+
+**Прямой переход через postMessage** (`TOUR_NAVIGATE`): `switchTo(600ms)` без фаз
+zoom-in/out — используется для навигации из родительского фрейма (киоск).
 
 **InfoPanel:**
 - Открывается кликом на info-хотспот
@@ -439,6 +479,8 @@ t=1374: _busy = false
 **Что сделано:**
 - [x] Инициализирован monorepo (root package.json + workspaces)
 - [x] Создан пакет `tiler` — полностью реализован, флаг `--mobile`
+- [x] Исправлен `preview.jpg`: теперь вертикальный стрип 256×1536 (6 граней в порядке bdflru)
+- [x] Исправлен `manifest.json`: поле `sceneId` вместо `id`; editor принимает оба
 - [x] Создан пакет `editor` — полностью реализован
 - [x] `src/store/types.ts` — все TypeScript-типы схемы тура
 - [x] `src/store/tourStore.tsx` — Context + useReducer, 13 actions
@@ -453,14 +495,18 @@ t=1374: _busy = false
 - [x] `exporter.ts` + `zipper.ts` — сериализация, ZIP с viewer-файлами, экспорт в папку
 - [x] Создан пакет `viewer` — полностью реализован
 - [x] Реализован базовый viewer (Фаза 1)
-- [x] Реализован `TransitionEngine` (Фаза 2)
+- [x] Реализован `TransitionEngine` (Фаза 2, без фазы приземления)
 - [x] Реализована `InfoPanel` (Фаза 3)
+- [x] Кiosk IPC: `i18n.js` (uz/ru/en), кнопка выхода, `TOUR_EXIT` postMessage
+- [x] Навигация по `?scene=sceneId` (URL) и `TOUR_NAVIGATE` (postMessage)
+- [x] Исправлен zoom: лимитер FOV, scroll wheel RAF, pinch-to-zoom
+- [x] Хотспоты масштабируются с FOV (`--hs-scale`); nav-хотспоты — эллипсы на полу
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Протестировать полный цикл (см. docs/TESTING.md): нарезать тестовую панораму tiler-ом
-(тайлы начинаются с z=0), расставить хотспоты в редакторе (авто-flip включён),
-экспортировать ZIP/папку, развернуть viewer и проверить переходы, InfoPanel, мобильные тайлы.
+Протестировать полный цикл (см. docs/TESTING.md): нарезать тестовую панораму tiler-ом,
+расставить хотспоты в редакторе, экспортировать ZIP, встроить viewer в киоск,
+проверить `?lang=`, `?scene=`, `TOUR_NAVIGATE` и `TOUR_EXIT`.
 
 **Известное ограничение редактора:**
 `PanoramaCanvas` загружает полное equirectangular-изображение как одну текстуру

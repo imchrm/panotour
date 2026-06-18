@@ -161,26 +161,62 @@ panotour/
 
 ## ADR-008: Переходы — оркестрация через setTimeout, не через Promise-цепочку
 
-**Решение:** `TransitionEngine` управляет последовательностью Zoom → Fade → Land
-через явные `setTimeout` с константами из `TRANSITION`.
+**Решение:** `TransitionEngine` управляет последовательностью Zoom → Fade
+через явные `setTimeout` с константами из `T`.
 
 **Обоснование:**
 - `scene.lookTo()` не возвращает Promise (void). Completion callback отсутствует
   в публичном API. Единственный вариант синхронизации — таймауты с известными
   `transitionDuration`.
 - `scene.switchTo()` также void. Нет события "переход завершён".
-- Таймауты с именованными константами (`TRANSITION.ZOOM_DURATION`) читаемы и
+- Таймауты с именованными константами (`T.INHALE_MS`, `T.RUSH_MS`) читаемы и
   предсказуемы. Альтернатива (polling `view.yaw()`) — хрупко и избыточно.
 
-**Последовательность (текущая реализация — «вдох + рывок + приземление»):**
+**Текущая последовательность («вдох + рывок + fade»):**
 ```
-t=0    : lookTo(hotspot, WIDE_FOV=100°, 80ms)              // вдох: FOV расширяется
-t=80   : lookTo(hotspot, ZOOM_IN_FOV=20°, 520ms)           // рывок: FOV сужается резко
-t=444  : switchTo(FADE_DURATION=280ms)                     // fade на 70% рывка
-t=724  : animateFov(20°→targetFov, 650ms, easeOutCubic)    // приземление (RAF, без lookTo)
-t=1374 : переход завершён (_busy = false)
+t=0    : lookTo(hotspot, WIDE_FOV=100°, 80ms)        // вдох: FOV расширяется
+t=80   : lookTo(hotspot, ZOOM_IN_FOV=20°, 520ms)     // рывок: FOV сужается резко
+t=444  : to.setParameters(targetYaw/pitch/fov)
+         switchTo(FADE_DURATION=280ms)                // fade на 70% рывка
+t=724  : _busy = false
 ```
 
-Фаза приземления намеренно использует `requestAnimationFrame` вместо `lookTo` —
-это единственный момент без конкурирующей анимации lookTo, поэтому RAF-управление
-FOV с кастомной кривой easeOutCubic не создаёт конфликтов с Marzipano.
+**Почему убрана фаза приземления (animateFov 20°→90°):**
+Изначально была третья фаза: расширение FOV после появления новой сцены.
+Визуально это выглядело как «отступление назад» — viewer сначала «нырял» в сцену
+(ZOOM_IN_FOV=20°), а потом «отскакивал». Убрано: целевая сцена появляется сразу
+с `targetFov`, без анимации FOV после fade.
+
+**Конфликт zoom ↔ transition:**
+При навигации через хотспот сбрасываем `fovTarget = null` до вызова `engine.navigate()`.
+Иначе RAF-цикл scroll-zoom применяет старый `fovTarget` к вью новой сцены,
+создавая паразитную анимацию FOV поверх перехода.
+
+---
+
+## ADR-010: Кiosk IPC — только URL и postMessage
+
+**Решение:** Viewer взаимодействует с родительским Electron-окном строго через
+два канала: URL query string (входные параметры при старте) и `window.postMessage`
+(двунаправленные события в рантайме).
+
+**Контракт:**
+
+| Направление | Механизм | Данные |
+|---|---|---|
+| Киоск → Viewer (старт) | `?lang=uz\|ru\|en` | Язык UI |
+| Киоск → Viewer (старт) | `?scene=sceneId` | Начальная сцена |
+| Киоск → Viewer (рантайм) | `postMessage({ type:'TOUR_NAVIGATE', sceneId, yaw?, pitch?, fov? })` | Переход к сцене |
+| Viewer → Киоск | `postMessage({ type:'TOUR_EXIT' })` | Пользователь вышел |
+
+**Обоснование:**
+- URL-параметры — единственный синхронный способ передать данные во `<iframe>` до
+  загрузки его содержимого. `postMessage` работает только после загрузки iframe.
+- `postMessage` с `'*'` как targetOrigin допустимо внутри Electron (не публичная сеть),
+  поскольку `window.parent` — это сам Electron-процесс.
+- `TOUR_NAVIGATE` использует простой `switchTo(600ms)` без zoom-in/out фаз —
+  киоск вызывает переход программно, не через физический хотспот. Визуальный
+  «рывок» уместен при клике по полу, но избыточен при навигации из меню.
+- Все строки UI вынесены в `i18n.js` — единственный файл для локализации.
+  `t(key)` с fallback на `ru` → ключ гарантирует graceful degradation при
+  отсутствии перевода.
