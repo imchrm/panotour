@@ -12,13 +12,14 @@
 **Концепция:** Собственный редактор хотспотов + tiler + viewer. Полный контроль
 над схемой данных тура. Независимость от Marzipano Tool.
 
-**Два независимых приложения в одном репозитории (monorepo):**
+**Четыре пакета в одном репозитории (monorepo):**
 
-| Приложение | Путь | Назначение |
+| Пакет | Путь | Назначение |
 |---|---|---|
 | `editor` | `packages/editor/` | React + Vite. Редактор тура: загрузка панорам, расстановка хотспотов, экспорт |
 | `viewer` | `packages/viewer/` | Vanilla JS. Готовый тур: рендер панорам, переходы, InfoPanel |
 | `tiler` | `packages/tiler/` | Node.js CLI. Нарезка equirectangular → CubeGeometry тайлы |
+| `server` | `packages/server/` | Express. Локальный сервер тайлинга для editor (Вариант B) |
 
 ---
 
@@ -49,9 +50,19 @@
 | Нарезка | Собственная обратная проекция equirectangular→куб + `sharp` |
 | Интерфейс | CLI (`node tiler.js --input pano.jpg --output ./tiles/scene-01`) |
 
+### Server (`packages/server/`)
+| Слой | Технология |
+|---|---|
+| Runtime | Node.js 20+ (CommonJS) |
+| HTTP | Express 4 |
+| Загрузка файлов | multer (diskStorage, лимит 500 МБ) |
+| Тайлинг | Вызов `tileScene()` из `packages/tiler/lib/cubemapTiler.js` |
+| Статика | `/tiles/*` → `workspace/tiles/`, `/viewer/*` → `packages/viewer/` |
+| Запуск | `npm run server` / `npm run dev` (совместно с editor) |
+
 ---
 
-## Структура файлов (целевая)
+## Структура файлов
 
 ```
 panotour/
@@ -65,13 +76,14 @@ panotour/
           InfoHotspotForm/    # Подформа для type=info (текст, фото, видео)
           NavHotspotForm/     # Подформа для type=link (targetYaw, targetPitch, targetFov)
           ExportButton/       # Кнопка экспорта (ZIP + папка)
-          SceneSettings/      # Настройки сцены (название, initialView)
+          SceneSettings/      # Настройки сцены (название, initialView, тайлинг)
         store/
           tourStore.ts        # Context + useReducer: состояние тура
           types.ts            # TourData, Scene, Hotspot, InfoContent и др.
         lib/
-          exporter.ts         # Генерация tour.json + структуры тура для экспорта
-          zipper.ts           # Упаковка в ZIP через JSZip
+          exporter.ts         # Генерация tour.json из состояния store
+          zipper.ts           # Упаковка в ZIP через JSZip (+ тайлы с сервера)
+          serverApi.ts        # Транспортная абстракция для локального сервера
         App.tsx
         main.tsx
       index.html
@@ -82,29 +94,39 @@ panotour/
     viewer/
       index.html
       app.js                  # Инициализация viewer, загрузка tour.json
+      i18n.js                 # Словарь uz/ru/en + t(key) + определение lang
       style.css
       marzipano.js            # Библиотека (не модифицируется)
       transitions/
-        TransitionEngine.js   # Zoom + Move + Fade оркестрация
+        TransitionEngine.js   # Zoom + Fade оркестрация
         easing.js             # easeInOutQuad, easeOutCubic, easeInQuad
       hotspots/
         NavHotspot.js         # Хотспот перехода между сценами
         InfoHotspot.js        # Хотспот вызова InfoPanel
         InfoPanel.js          # DOM-компонент информационной панели
       tour.json               # Данные тура (генерируется редактором, заменяется при деплое)
-      tiles/
-        {scene_id}/           # Тайлы (генерируется tiler)
-          preview.jpg
+      tiles/                  # Тайлы (из server/workspace/tiles/ или CLI tiler)
+        {scene_id}/
+          preview.jpg         # Вертикальный стрип 256×1536 (6 граней: b,d,f,l,r,u)
           {z}/{f}/{y}/{x}.jpg
+          manifest.json
+
+    server/
+      server.js               # Express: POST /api/tile, GET /tiles/*, GET /viewer/*
+      package.json
+      .gitignore              # игнорирует workspace/
+      workspace/              # (не в git)
+        tiles/
+          {scene_id}/         # Результат тайлинга через API
 
     tiler/
       tiler.js                # CLI точка входа
       lib/
-        cubemapTiler.js       # Собственная обратная проекция + sharp; FACE_NAMES=['r','l','u','d','f','b']
+        cubemapTiler.js       # Собственная обратная проекция + sharp
         manifest.js           # Генерация манифеста уровней для Marzipano
       package.json
 
-  package.json                # Root: workspaces, общие dev-скрипты
+  package.json                # Root: workspaces, dev/server/editor скрипты
   .gitignore
   README.md
 ```
@@ -410,7 +432,17 @@ CAPTURE_VIEW, TOGGLE_FLIP_ARRIVAL_YAW.
 
 **Экспорт (`src/lib/`):**
 - `exporter.ts` — `exportTour()` снимает `panoramaObjectUrl` с EditorScene, возвращает чистый `TourData`
-- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip + 9 viewer-файлов), `exportToFolder()` (File System Access API, fallback на ZIP для Firefox)
+- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip + 10 viewer-файлов включая `i18n.js`), `downloadZipWithTiles()` (+ тайлы с сервера для каждой нарезанной сцены), `exportToFolder()` (File System Access API, fallback на ZIP для Firefox)
+- `serverApi.ts` — транспортная абстракция для локального сервера тайлинга:
+  - `SERVER_URL` — из `VITE_TILER_SERVER` env или `http://localhost:3333`
+  - `checkServer()` — `GET /api/health` с таймаутом 2 с
+  - `tileOnServer(panoramaObjectUrl, sceneId)` — `POST /api/tile` (FormData), возвращает `{ tilesPath, previewUrl, levels }`
+  - `fetchTileFiles(sceneId)` — `GET /api/tile/:id/files`, список путей тайлов для ZIP
+
+**SceneSettings — тайлинг через сервер:**
+- Кнопка "Tile on server ▶" — отправляет panorama на `POST /api/tile`, обновляет `tilesPath`, `previewUrl`, `levels` сцены
+- Индикатор статуса сервера (зелёный / красный / "Checking…") обновляется при монтировании компонента
+- При ошибке сервера кнопка отключается; статус `serverOk === false` показывает инструкцию `npm run server`
 
 ---
 
@@ -468,7 +500,8 @@ zoom-in/out — используется для навигации из роди
 - `vite.config.ts` — плагин `viewer-files`:
   - dev: middleware `/viewer/*` → `packages/viewer/*`
   - build: `generateBundle` → эмитирует все файлы viewer как `viewer/*` ассеты
-- `zipper.ts` — `downloadZip()` фетчит 9 файлов viewer с `/viewer/*`, упаковывает в ZIP вместе с `tour.json`
+- `zipper.ts` — `downloadZip()` фетчит 10 файлов viewer с `/viewer/*` (включая `i18n.js`), упаковывает в ZIP вместе с `tour.json`
+- `downloadZipWithTiles()` — дополнительно фетчит тайлы с локального сервера (`GET /api/tile/:id/files` + `/tiles/:id/:path`) для каждой сцены с `levels.length > 0`; результат — самодостаточный ZIP тура
 
 ---
 
@@ -493,6 +526,11 @@ zoom-in/out — используется для навигации из роди
 - [x] `NavHotspotForm` — поля targetYaw/Pitch/Fov, кнопка "Apply" из capturedView
 - [x] `InfoHotspotForm` — поля title, text, imageUrl, videoUrl
 - [x] `exporter.ts` + `zipper.ts` — сериализация, ZIP с viewer-файлами, экспорт в папку
+- [x] `serverApi.ts` — транспортная абстракция: `checkServer`, `tileOnServer`, `fetchTileFiles`
+- [x] `zipper.ts` — `downloadZipWithTiles()`: полный ZIP тура с тайлами с локального сервера
+- [x] `SceneSettings` — кнопка "Tile on server ▶", статус сервера, авто-заполнение levels
+- [x] Создан пакет `server` — Express, `POST /api/tile`, `GET /tiles/*`, `GET /viewer/*`
+- [x] `npm run dev` — запускает server + editor одновременно через concurrently
 - [x] Создан пакет `viewer` — полностью реализован
 - [x] Реализован базовый viewer (Фаза 1)
 - [x] Реализован `TransitionEngine` (Фаза 2, без фазы приземления)
@@ -504,9 +542,12 @@ zoom-in/out — используется для навигации из роди
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Протестировать полный цикл (см. docs/TESTING.md): нарезать тестовую панораму tiler-ом,
-расставить хотспоты в редакторе, экспортировать ZIP, встроить viewer в киоск,
-проверить `?lang=`, `?scene=`, `TOUR_NAVIGATE` и `TOUR_EXIT`.
+Протестировать полный цикл с Вариантом B (локальный сервер):
+1. `npm run dev` — запускает server (порт 3333) + editor (порт 5173)
+2. Загрузить панораму в editor → кнопка "Tile on server ▶" → проверить levels в tour.json
+3. Расставить nav/info хотспоты
+4. Экспорт: "Download ZIP with tiles" → проверить структуру ZIP
+5. Встроить viewer в киоск, проверить `?lang=uz`, `?scene=`, `TOUR_NAVIGATE`, `TOUR_EXIT`
 
 **Известное ограничение редактора:**
 `PanoramaCanvas` загружает полное equirectangular-изображение как одну текстуру

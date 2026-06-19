@@ -1,6 +1,7 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTour } from '../../store/tourStore';
 import type { TileLevel } from '../../store/types';
+import { checkServer, tileOnServer, SERVER_URL } from '../../lib/serverApi';
 import styles from './SceneSettings.module.css';
 
 const RAD = Math.PI / 180;
@@ -9,6 +10,16 @@ export function SceneSettings() {
   const { state, dispatch } = useTour();
   const activeScene = state.tour.scenes.find((s) => s.id === state.activeSceneId);
   const manifestInputRef = useRef<HTMLInputElement>(null);
+
+  const [serverOk, setServerOk] = useState<boolean | null>(null);
+  const [tiling, setTiling]     = useState(false);
+  const [tileMsg, setTileMsg]   = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    checkServer().then((ok) => { if (alive) setServerOk(ok); });
+    return () => { alive = false; };
+  }, []);
 
   if (!activeScene) return null;
 
@@ -40,6 +51,29 @@ export function SceneSettings() {
       id: activeScene.id,
       patch: { initialView: { ...activeScene.initialView, [field]: rad } },
     });
+  }
+
+  async function handleTile() {
+    if (!activeScene?.panoramaObjectUrl) return;
+    setTiling(true);
+    setTileMsg(null);
+    try {
+      const result = await tileOnServer(activeScene.panoramaObjectUrl, activeScene.id);
+      dispatch({
+        type: 'UPDATE_SCENE',
+        id: activeScene.id,
+        patch: {
+          tilesPath:  result.tilesPath,
+          previewUrl: result.previewUrl,
+          levels:     result.levels,
+        },
+      });
+      setTileMsg({ ok: true, text: `${result.levels.length} levels — done` });
+    } catch (err: unknown) {
+      setTileMsg({ ok: false, text: err instanceof Error ? err.message : 'Tiling failed' });
+    } finally {
+      setTiling(false);
+    }
   }
 
   function handleManifestFile(file: File) {
@@ -96,6 +130,39 @@ export function SceneSettings() {
       </div>
 
       <div className={styles.sectionTitle}>Tiles</div>
+
+      {/* Server tiling */}
+      {activeScene.panoramaObjectUrl && (
+        <div className={styles.field}>
+          <button
+            className={styles.tileBtn}
+            onClick={handleTile}
+            disabled={tiling || serverOk === false}
+            title={
+              serverOk === false
+                ? `Server not running — start with: npm run server  (${SERVER_URL})`
+                : 'Tile panorama on local server and auto-fill levels'
+            }
+          >
+            {tiling ? 'Tiling…' : 'Tile on server ▶'}
+          </button>
+          <div className={
+            serverOk === true  ? styles.serverOk   :
+            serverOk === false ? styles.serverWarn :
+            styles.levelsWarn
+          }>
+            {serverOk === true  ? `Server ready (${SERVER_URL})` :
+             serverOk === false ? `Server offline — npm run server` :
+             'Checking server…'}
+          </div>
+          {tileMsg && (
+            <div className={tileMsg.ok ? styles.levelsOk : styles.levelsWarn}>
+              {tileMsg.text}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className={styles.field}>
         <label className={styles.label}>Tiles path</label>
         <input

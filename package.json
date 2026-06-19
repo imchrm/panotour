@@ -6,8 +6,13 @@
     "packages/*"
   ],
   "scripts": {
-    "editor": "npm run dev --workspace=packages/editor",
-    "tiler": "npm run --workspace=packages/tiler",
+    "editor":       "npm run dev --workspace=packages/editor",
+    "server":       "node packages/server/server.js",
+    "dev":          "concurrently -n server,editor -c cyan,green \"npm run server\" \"npm run editor\"",
+    "tiler":        "npm run --workspace=packages/tiler",
     "build:editor": "npm run build --workspace=packages/editor"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
   }
 }
