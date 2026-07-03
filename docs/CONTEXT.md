@@ -241,7 +241,15 @@ window.frames[0].postMessage({
 ```js
 // Пользователь нажал кнопку "Выход" или Escape (вне InfoPanel)
 window.parent.postMessage({ type: 'TOUR_EXIT' }, '*');
+
+// Активность пользователя внутри iframe — throttle 2500 мс, leading-режим
+// Только когда viewer встроен в iframe (window.parent !== window)
+window.parent.postMessage({ type: 'TOUR_ACTIVITY' }, '*');
 ```
+
+`TOUR_ACTIVITY` отправляется не чаще 1 раза в 2500 мс при любом из событий:
+`pointerdown`, `pointermove`, `wheel`, `keydown`, `touchstart`, `touchmove` (capture-фаза, passive).
+Используется для сброса таймера бездействия в родительском окне киоска.
 
 ---
 
@@ -537,6 +545,7 @@ zoom-in/out — используется для навигации из роди
 - [x] Реализована `InfoPanel` (Фаза 3)
 - [x] Кiosk IPC: `i18n.js` (uz/ru/en), кнопка выхода, `TOUR_EXIT` postMessage
 - [x] Навигация по `?scene=sceneId` (URL) и `TOUR_NAVIGATE` (postMessage)
+- [x] Beacon `TOUR_ACTIVITY`: throttle 2500 мс, capture-фаза, только в iframe
 - [x] Исправлен zoom: лимитер FOV, scroll wheel RAF, pinch-to-zoom
 - [x] Хотспоты масштабируются с FOV (`--hs-scale`); nav-хотспоты — эллипсы на полу
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer

@@ -34,6 +34,26 @@ function exitTour() {
   window.parent.postMessage({ type: 'TOUR_EXIT' }, '*');
 }
 
+// Activity beacon: throttled postMessage to parent so the kiosk inactivity
+// timer resets while the user interacts inside the iframe.
+(function initActivityBeacon() {
+  if (window.parent === window) return;
+  const INTERVAL_MS = 2500;
+  let last = 0;
+  function ping() {
+    const now = Date.now();
+    if (now - last < INTERVAL_MS) return;
+    last = now;
+    window.parent.postMessage({ type: 'TOUR_ACTIVITY' }, '*');
+  }
+  const events = ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart', 'touchmove'];
+  const opts = { capture: true, passive: true };
+  events.forEach((ev) => window.addEventListener(ev, ping, opts));
+  window.addEventListener('beforeunload', () => {
+    events.forEach((ev) => window.removeEventListener(ev, ping, opts));
+  });
+})();
+
 // Exit button — fixed top-left, above viewer
 const exitBtn = document.createElement('button');
 exitBtn.className = 'exit-btn';
