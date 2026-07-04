@@ -217,8 +217,10 @@ Viewer встраивается как `<iframe>` в Electron-киоск. Все
 |---|---|---|---|
 | `?lang=` | `uz` \| `ru` \| `en` | `ru` | Язык UI (кнопки, подсказки, ошибки) |
 | `?scene=` | любой `sceneId` из `tour.json` | `defaultSceneId` | Начальная сцена при открытии |
+| `?debug=1` | `1` | выключен | Диагностический лог в консоль (`[panotour]`); в проде не передавать |
 
-Пример: `viewer/index.html?lang=uz&scene=scene-02`
+Пример: `viewer/index.html?lang=uz&scene=scene-02`  
+Пример (отладка): `viewer/index.html?lang=ru&debug=1`
 
 ### Входящие сообщения (postMessage → viewer)
 
@@ -466,7 +468,8 @@ CAPTURE_VIEW, TOGGLE_FLIP_ARRIVAL_YAW.
 packages/viewer/
   index.html                  — подключает marzipano.js и app.js как module
   app.js                      — загрузка tour.json, инициализация viewer и сцен
-  i18n.js                     — словарь uz/ru/en + t(key) + определение lang из URL
+  i18n.js                     — словарь uz/ru/en + t(key) + lang из URL
+                                    # ключи: btn.exit, panel.close, error.load, video.offline
   style.css                   — базовые стили, хотспоты, InfoPanel, exit-кнопка
   marzipano.js                — библиотека (не модифицируется)
   hotspots/
@@ -504,7 +507,8 @@ zoom-in/out — используется для навигации из роди
 **InfoPanel:**
 - Открывается кликом на info-хотспот
 - Поддерживает: текст (innerHTML), `imageUrl`, YouTube iframe (`/embed/` URL), `<video>` (локальный mp4)
-- Закрывается по кнопке ×, Escape, клику вне панели
+- YouTube в офлайн-режиме: при `navigator.onLine === false` iframe заменяется текстовой заглушкой (`t('video.offline')`, стиль `.info-panel-offline`)
+- Закрывается по кнопке ×, Escape (`stopImmediatePropagation` — не конкурирует с TOUR_EXIT из `app.js`), клику вне панели
 - Останавливает медиа при закрытии (pause/src="")
 
 **ZIP-экспорт (editor → viewer):**
@@ -549,6 +553,9 @@ zoom-in/out — используется для навигации из роди
 - [x] Кiosk IPC: `i18n.js` (uz/ru/en), кнопка выхода, `TOUR_EXIT` postMessage
 - [x] Навигация по `?scene=sceneId` (URL) и `TOUR_NAVIGATE` (postMessage)
 - [x] Beacon `TOUR_ACTIVITY`: throttle 2500 мс, capture-фаза, только в iframe
+- [x] Диагностический лог: `?debug=1` → `[panotour]` в консоль (параметры загрузки, TOUR_EXIT с причиной, TOUR_ACTIVITY)
+- [x] YouTube офлайн-заглушка в InfoPanel (`navigator.onLine` + `t('video.offline')` + `.info-panel-offline`)
+- [x] Escape в InfoPanel: `stopImmediatePropagation` — изолирован от TOUR_EXIT независимо от порядка обработчиков
 - [x] Исправлен zoom: лимитер FOV, scroll wheel RAF, pinch-to-zoom
 - [x] Хотспоты масштабируются с FOV (`--hs-scale`); nav-хотспоты — эллипсы на полу
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
@@ -559,7 +566,8 @@ zoom-in/out — используется для навигации из роди
 2. Загрузить панораму в editor → кнопка "Tile on server ▶" → проверить levels в tour.json
 3. Расставить nav/info хотспоты
 4. Экспорт: "Download ZIP with tiles" → проверить структуру ZIP
-5. Встроить viewer в киоск, проверить `?lang=uz`, `?scene=`, `TOUR_NAVIGATE`, `TOUR_EXIT`
+5. Встроить viewer в киоск, проверить `?lang=uz`, `?scene=`, `TOUR_NAVIGATE`, `TOUR_EXIT`, `TOUR_ACTIVITY`
+6. Открыть тур с `?debug=1`, проверить лог `[panotour]` при загрузке, переходах и выходе
 
 **Известное ограничение редактора:**
 `PanoramaCanvas` загружает полное equirectangular-изображение как одну текстуру

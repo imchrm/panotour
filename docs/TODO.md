@@ -83,6 +83,9 @@
 - [x] Закрытие InfoPanel по клику вне панели и по Escape
 - [x] Остановка видео в InfoPanel при закрытии
 - [x] Поддержка `<video>` (локальные mp4) и YouTube iframe в InfoPanel
+- [x] YouTube офлайн-заглушка: `navigator.onLine` → `t('video.offline')` вместо iframe
+- [x] Escape в InfoPanel: `stopImmediatePropagation` — изолирован от TOUR_EXIT
+- [x] Диагностический лог `?debug=1`: параметры загрузки, TOUR_EXIT (с причиной), TOUR_ACTIVITY
 
 ---
 

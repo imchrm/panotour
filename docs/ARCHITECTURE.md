@@ -207,6 +207,7 @@ t=724  : _busy = false
 |---|---|---|
 | Киоск → Viewer (старт) | `?lang=uz\|ru\|en` | Язык UI |
 | Киоск → Viewer (старт) | `?scene=sceneId` | Начальная сцена |
+| Киоск → Viewer (старт) | `?debug=1` | Диагностический лог в консоль (только при отладке, не в проде) |
 | Киоск → Viewer (рантайм) | `postMessage({ type:'TOUR_NAVIGATE', sceneId, yaw?, pitch?, fov? })` | Переход к сцене |
 | Viewer → Киоск | `postMessage({ type:'TOUR_EXIT' })` | Пользователь вышел |
 | Viewer → Киоск | `postMessage({ type:'TOUR_ACTIVITY' })` | Активность пользователя (throttle 2500 мс) |
@@ -228,3 +229,8 @@ t=724  : _busy = false
   встроен в iframe (`window.parent !== window`). Слушатели снимаются на
   `beforeunload`. Цель: сброс таймера бездействия родительского окна, так как
   iframe поглощает события и родитель не видит активность пользователя.
+- `?debug=1` включает диагностический вывод в `console` под префиксом `[panotour]`:
+  параметры загрузки (`tourId` из pathname, `lang`, `scene`, `embedded`),
+  причина каждого `TOUR_EXIT` (button/Escape), каждый реально отправленный
+  `TOUR_ACTIVITY`. По умолчанию флаг отсутствует — в проде 24/7 лог не шумит.
+  Формат самих postMessage сообщений не изменяется.
