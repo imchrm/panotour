@@ -52,6 +52,7 @@ panotour/
     editor/             React + Vite + TypeScript
     viewer/             Vanilla JS (статика, копируется в output экспорта)
     tiler/              Node.js CLI
+    server/             Express (локальный сервер тайлинга для editor, Вариант B)
 ```
 
 ---
@@ -208,6 +209,7 @@ t=724  : _busy = false
 | Киоск → Viewer (старт) | `?scene=sceneId` | Начальная сцена |
 | Киоск → Viewer (рантайм) | `postMessage({ type:'TOUR_NAVIGATE', sceneId, yaw?, pitch?, fov? })` | Переход к сцене |
 | Viewer → Киоск | `postMessage({ type:'TOUR_EXIT' })` | Пользователь вышел |
+| Viewer → Киоск | `postMessage({ type:'TOUR_ACTIVITY' })` | Активность пользователя (throttle 2500 мс) |
 
 **Обоснование:**
 - URL-параметры — единственный синхронный способ передать данные во `<iframe>` до
@@ -220,3 +222,9 @@ t=724  : _busy = false
 - Все строки UI вынесены в `i18n.js` — единственный файл для локализации.
   `t(key)` с fallback на `ru` → ключ гарантирует graceful degradation при
   отсутствии перевода.
+- `TOUR_ACTIVITY` отправляется throttle-функцией (leading, 2500 мс) при любом
+  взаимодействии пользователя с iframe (`pointerdown`, `pointermove`, `wheel`,
+  `keydown`, `touchstart`, `touchmove` в capture-фазе). Только когда viewer
+  встроен в iframe (`window.parent !== window`). Слушатели снимаются на
+  `beforeunload`. Цель: сброс таймера бездействия родительского окна, так как
+  iframe поглощает события и родитель не видит активность пользователя.

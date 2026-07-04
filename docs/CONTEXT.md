@@ -265,7 +265,10 @@ const source   = Marzipano.ImageUrlSource.fromString(
   'tiles/{scene_id}/{z}/{f}/{y}/{x}.jpg',
   { cubeMapPreviewUrl: 'tiles/{scene_id}/preview.jpg' }
 );
-const limiter  = Marzipano.RectilinearView.limit.traditional(1024, 120 * Math.PI / 180);
+// faceSize clamped to ≥4096 so minFOV doesn't exceed maxFOV on small tile sets
+const limiter  = Marzipano.RectilinearView.limit.traditional(
+  Math.max(maxSize, 4096), 100 * Math.PI / 180, 120 * Math.PI / 180
+);
 const view     = new Marzipano.RectilinearView(initialView, limiter);
 const scene    = viewer.createScene({ source, geometry, view, pinFirstLevel: true });
 
