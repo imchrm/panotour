@@ -70,7 +70,11 @@ export class InfoPanel {
 
     // Escape key
     const handleKey = (e) => {
-      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', handleKey); }
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation();
+        close();
+        document.removeEventListener('keydown', handleKey);
+      }
     };
     document.addEventListener('keydown', handleKey);
 
@@ -83,11 +87,18 @@ export class InfoPanel {
 
     const isYouTube = /youtube\.com\/embed\/|youtu\.be\//.test(url);
     if (isYouTube) {
-      const iframe = document.createElement('iframe');
-      iframe.src = url;
-      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-      iframe.allowFullscreen = true;
-      wrap.appendChild(iframe);
+      if (!navigator.onLine) {
+        const msg = document.createElement('div');
+        msg.className = 'info-panel-offline';
+        msg.textContent = t('video.offline');
+        wrap.appendChild(msg);
+      } else {
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        iframe.allowFullscreen = true;
+        wrap.appendChild(iframe);
+      }
     } else {
       const video = document.createElement('video');
       video.src = url;

@@ -279,6 +279,32 @@
 
 ---
 
+## [2026-07-04] — Kiosk contract: debug log, YouTube offline, Escape isolation
+
+**Пакет:** viewer
+
+**Что сделано:**
+- `app.js`: флаг `?debug=1` — включает диагностический лог `[panotour]`.
+  При загрузке: `tourId` (из pathname), `lang`, `scene`, `embedded`.
+  `exitTour(reason)` логирует причину выхода (`button` или `Escape`).
+  `ping()` логирует `-> TOUR_ACTIVITY` только реально отправленные сигналы
+  (уже после throttle, не на каждый `pointermove`).
+  В проде параметр не передаётся — лога нет.
+- `InfoPanel.js`: YouTube iframe не загружается в офлайн-режиме.
+  При `navigator.onLine === false` — `<div class="info-panel-offline">` с текстом
+  `t('video.offline')` вместо iframe. Локальные `<video>` не затронуты.
+- `InfoPanel.js`: Escape-обработчик добавляет `e.stopImmediatePropagation()`.
+  Закрытие панели больше не зависит от порядка регистрации обработчиков —
+  TOUR_EXIT из `app.js` физически не получает событие.
+- `i18n.js`: добавлен ключ `'video.offline'` (uz/ru/en).
+- `style.css`: добавлен класс `.info-panel-offline`.
+
+**Почему:** Аудит соответствия контракту киоска Navaport выявил три пробела:
+отсутствие диагностического лога, внешний запрос к youtube.com в офлайн-режиме
+и потенциальную хрупкость Escape-обработчика при рефакторинге.
+
+---
+
 <!--
 Шаблон для будущих сессий:
 
