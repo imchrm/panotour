@@ -23,7 +23,7 @@
 ### Пакет `editor`
 - [x] Scaffold (Vite + React + TS)
 - [x] Создать `src/store/types.ts` — все TypeScript-типы схемы тура
-- [x] Создать `src/store/tourStore.tsx` — Context + useReducer (9 actions)
+- [x] Создать `src/store/tourStore.tsx` — Context + useReducer (13 actions)
 - [x] Реализовать `PanoramaList` — загрузка файлов, список сцен
 - [x] Реализовать `PanoramaCanvas` — Marzipano EquirectGeometry, клик → yaw/pitch
 - [x] Реализовать `HotspotPanel` — список хотспотов, кнопка добавить/удалить
@@ -43,7 +43,7 @@
 - [x] Реализовать базовый переход (switchTo + targetYaw/targetPitch)
 - [x] Реализовать `hotspots/InfoHotspot.js` + `hotspots/InfoPanel.js`
 - [x] Реализовать `transitions/easing.js`
-- [x] Реализовать `transitions/TransitionEngine.js` — Zoom + Fade + Land
+- [x] Реализовать `transitions/TransitionEngine.js` — Zoom + Fade (фаза Land удалена)
 - [x] Mobile: при загрузке определять тип устройства, использовать `tiles/{id}/mobile/`
       и `mobile/manifest.json` если они присутствуют (graceful fallback на desktop)
 - [ ] Протестировать полный цикл: tiler -> editor -> export -> viewer
@@ -70,12 +70,11 @@
 ## Улучшения UX viewer
 
 - [x] **Zoom управление:**
-      — Desktop: колесо мыши (scroll) изменяет FOV
-      — Mobile: щипковый жест двумя пальцами (pinch-to-zoom)
-      Работает из коробки: Marzipano `registerDefaultControls` включает
-      `ScrollZoomControlMethod` и `PinchZoomControlMethod` по умолчанию
-      (если только не передать `controls: { scrollZoom: false }`).
-      Явный код не требуется.
+      — Desktop: кастомный scroll-wheel RAF-handler (Marzipano built-in scroll zoom
+        отключён через `scrollZoom: false` — ненадёжен на некоторых платформах).
+        `fovTarget` накапливает дельты колеса; RAF-цикл сглаживает с коэфф. 0.18.
+      — Mobile: кастомные capture-фазные обработчики `touchstart`/`touchmove` (2 пальца)
+        с `stopPropagation`/`preventDefault`, чтобы не конфликтовать с Hammer.js.
 - [ ] Анимация хотспота: пульсация при idle
 - [ ] Индикатор загрузки сцены во время перехода
 - [ ] Плавное появление хотспотов после завершения перехода

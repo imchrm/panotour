@@ -12,13 +12,14 @@
 **Концепция:** Собственный редактор хотспотов + tiler + viewer. Полный контроль
 над схемой данных тура. Независимость от Marzipano Tool.
 
-**Два независимых приложения в одном репозитории (monorepo):**
+**Четыре пакета в одном репозитории (monorepo):**
 
-| Приложение | Путь | Назначение |
+| Пакет | Путь | Назначение |
 |---|---|---|
 | `editor` | `packages/editor/` | React + Vite. Редактор тура: загрузка панорам, расстановка хотспотов, экспорт |
 | `viewer` | `packages/viewer/` | Vanilla JS. Готовый тур: рендер панорам, переходы, InfoPanel |
 | `tiler` | `packages/tiler/` | Node.js CLI. Нарезка equirectangular → CubeGeometry тайлы |
+| `server` | `packages/server/` | Express. Локальный сервер тайлинга для editor (Вариант B) |
 
 ---
 
@@ -49,9 +50,19 @@
 | Нарезка | Собственная обратная проекция equirectangular→куб + `sharp` |
 | Интерфейс | CLI (`node tiler.js --input pano.jpg --output ./tiles/scene-01`) |
 
+### Server (`packages/server/`)
+| Слой | Технология |
+|---|---|
+| Runtime | Node.js 20+ (CommonJS) |
+| HTTP | Express 4 |
+| Загрузка файлов | multer (diskStorage, лимит 500 МБ) |
+| Тайлинг | Вызов `tileScene()` из `packages/tiler/lib/cubemapTiler.js` |
+| Статика | `/tiles/*` → `workspace/tiles/`, `/viewer/*` → `packages/viewer/` |
+| Запуск | `npm run server` / `npm run dev` (совместно с editor) |
+
 ---
 
-## Структура файлов (целевая)
+## Структура файлов
 
 ```
 panotour/
@@ -65,13 +76,14 @@ panotour/
           InfoHotspotForm/    # Подформа для type=info (текст, фото, видео)
           NavHotspotForm/     # Подформа для type=link (targetYaw, targetPitch, targetFov)
           ExportButton/       # Кнопка экспорта (ZIP + папка)
-          SceneSettings/      # Настройки сцены (название, initialView)
+          SceneSettings/      # Настройки сцены (название, initialView, тайлинг)
         store/
           tourStore.ts        # Context + useReducer: состояние тура
           types.ts            # TourData, Scene, Hotspot, InfoContent и др.
         lib/
-          exporter.ts         # Генерация tour.json + структуры тура для экспорта
-          zipper.ts           # Упаковка в ZIP через JSZip
+          exporter.ts         # Генерация tour.json из состояния store
+          zipper.ts           # Упаковка в ZIP через JSZip (+ тайлы с сервера)
+          serverApi.ts        # Транспортная абстракция для локального сервера
         App.tsx
         main.tsx
       index.html
@@ -82,29 +94,39 @@ panotour/
     viewer/
       index.html
       app.js                  # Инициализация viewer, загрузка tour.json
+      i18n.js                 # Словарь uz/ru/en + t(key) + определение lang
       style.css
       marzipano.js            # Библиотека (не модифицируется)
       transitions/
-        TransitionEngine.js   # Zoom + Move + Fade оркестрация
+        TransitionEngine.js   # Zoom + Fade оркестрация
         easing.js             # easeInOutQuad, easeOutCubic, easeInQuad
       hotspots/
         NavHotspot.js         # Хотспот перехода между сценами
         InfoHotspot.js        # Хотспот вызова InfoPanel
         InfoPanel.js          # DOM-компонент информационной панели
       tour.json               # Данные тура (генерируется редактором, заменяется при деплое)
-      tiles/
-        {scene_id}/           # Тайлы (генерируется tiler)
-          preview.jpg
+      tiles/                  # Тайлы (из server/workspace/tiles/ или CLI tiler)
+        {scene_id}/
+          preview.jpg         # Вертикальный стрип 256×1536 (6 граней: b,d,f,l,r,u)
           {z}/{f}/{y}/{x}.jpg
+          manifest.json
+
+    server/
+      server.js               # Express: POST /api/tile, GET /tiles/*, GET /viewer/*
+      package.json
+      .gitignore              # игнорирует workspace/
+      workspace/              # (не в git)
+        tiles/
+          {scene_id}/         # Результат тайлинга через API
 
     tiler/
       tiler.js                # CLI точка входа
       lib/
-        cubemapTiler.js       # Собственная обратная проекция + sharp; FACE_NAMES=['r','l','u','d','f','b']
+        cubemapTiler.js       # Собственная обратная проекция + sharp
         manifest.js           # Генерация манифеста уровней для Marzipano
       package.json
 
-  package.json                # Root: workspaces, общие dev-скрипты
+  package.json                # Root: workspaces, dev/server/editor скрипты
   .gitignore
   README.md
 ```
@@ -177,12 +199,57 @@ const T = {
   WIDE_FOV:      1.7453,  // ~100° — кратковременное расширение FOV ("вдох")
   NORMAL_FOV:    1.5708,  // ~90°  — стандартный FOV
   ZOOM_IN_FOV:   0.3491,  // ~20°  — агрессивный zoom (ощущение движения)
-  INHALE_MS:     80,       // мс — фаза вдоха
-  RUSH_MS:       520,      // мс — фаза рывка
-  FADE_DURATION: 280,      // мс — crossfade между сценами
-  LAND_DURATION: 650,      // мс — zoom-out с easeOutCubic (приземление)
+  INHALE_MS:     80,      // мс — фаза вдоха
+  RUSH_MS:       520,     // мс — фаза рывка
+  FADE_DURATION: 280,     // мс — crossfade между сценами
 };
+// LAND_DURATION и animateFov удалены: целевая сцена появляется сразу с targetFov.
 ```
+
+## Кiosk IPC — контракт
+
+Viewer встраивается как `<iframe>` в Electron-киоск. Все взаимодействия
+только через URL-параметры и `postMessage` — без дополнительных каналов.
+
+### Входящие параметры (URL)
+
+| Параметр | Значения | По умолчанию | Описание |
+|---|---|---|---|
+| `?lang=` | `uz` \| `ru` \| `en` | `ru` | Язык UI (кнопки, подсказки, ошибки) |
+| `?scene=` | любой `sceneId` из `tour.json` | `defaultSceneId` | Начальная сцена при открытии |
+
+Пример: `viewer/index.html?lang=uz&scene=scene-02`
+
+### Входящие сообщения (postMessage → viewer)
+
+```js
+// Перейти к конкретной сцене (прямой crossfade, 600ms)
+window.frames[0].postMessage({
+  type:   'TOUR_NAVIGATE',
+  sceneId: 'scene-02',       // обязательно — id сцены из tour.json
+  yaw:    1.23,              // необязательно — угол прибытия (рад)
+  pitch: -0.05,              // необязательно
+  fov:    1.5707,            // необязательно
+}, '*');
+```
+
+Если `yaw/pitch/fov` не переданы — используется `initialView` целевой сцены.
+Если `sceneId` не найден или совпадает с текущей — сообщение игнорируется.
+
+### Исходящие сообщения (viewer → родительский фрейм)
+
+```js
+// Пользователь нажал кнопку "Выход" или Escape (вне InfoPanel)
+window.parent.postMessage({ type: 'TOUR_EXIT' }, '*');
+
+// Активность пользователя внутри iframe — throttle 2500 мс, leading-режим
+// Только когда viewer встроен в iframe (window.parent !== window)
+window.parent.postMessage({ type: 'TOUR_ACTIVITY' }, '*');
+```
+
+`TOUR_ACTIVITY` отправляется не чаще 1 раза в 2500 мс при любом из событий:
+`pointerdown`, `pointermove`, `wheel`, `keydown`, `touchstart`, `touchmove` (capture-фаза, passive).
+Используется для сброса таймера бездействия в родительском окне киоска.
 
 ---
 
@@ -198,7 +265,10 @@ const source   = Marzipano.ImageUrlSource.fromString(
   'tiles/{scene_id}/{z}/{f}/{y}/{x}.jpg',
   { cubeMapPreviewUrl: 'tiles/{scene_id}/preview.jpg' }
 );
-const limiter  = Marzipano.RectilinearView.limit.traditional(1024, 120 * Math.PI / 180);
+// faceSize clamped to ≥4096 so minFOV doesn't exceed maxFOV on small tile sets
+const limiter  = Marzipano.RectilinearView.limit.traditional(
+  Math.max(maxSize, 4096), 100 * Math.PI / 180, 120 * Math.PI / 180
+);
 const view     = new Marzipano.RectilinearView(initialView, limiter);
 const scene    = viewer.createScene({ source, geometry, view, pinFirstLevel: true });
 
@@ -277,7 +347,7 @@ node tiler.js --input ./panos/entrance.jpg --output ./tiles/scene-01 --id scene-
 Генерирует (без `--mobile`):
 ```
 tiles/scene-01/
-  preview.jpg          (256×256, front face +Z)
+  preview.jpg          (256×1536, вертикальный стрип 6 граней: b,d,f,l,r,u)
   {z}/{f}/{y}/{x}.jpg
   manifest.json
 ```
@@ -373,7 +443,17 @@ CAPTURE_VIEW, TOGGLE_FLIP_ARRIVAL_YAW.
 
 **Экспорт (`src/lib/`):**
 - `exporter.ts` — `exportTour()` снимает `panoramaObjectUrl` с EditorScene, возвращает чистый `TourData`
-- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip + 9 viewer-файлов), `exportToFolder()` (File System Access API, fallback на ZIP для Firefox)
+- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip + 10 viewer-файлов включая `i18n.js`), `downloadZipWithTiles()` (+ тайлы с сервера для каждой нарезанной сцены), `exportToFolder()` (File System Access API, fallback на ZIP для Firefox)
+- `serverApi.ts` — транспортная абстракция для локального сервера тайлинга:
+  - `SERVER_URL` — из `VITE_TILER_SERVER` env или `http://localhost:3333`
+  - `checkServer()` — `GET /api/health` с таймаутом 2 с
+  - `tileOnServer(panoramaObjectUrl, sceneId)` — `POST /api/tile` (FormData), возвращает `{ tilesPath, previewUrl, levels }`
+  - `fetchTileFiles(sceneId)` — `GET /api/tile/:id/files`, список путей тайлов для ZIP
+
+**SceneSettings — тайлинг через сервер:**
+- Кнопка "Tile on server ▶" — отправляет panorama на `POST /api/tile`, обновляет `tilesPath`, `previewUrl`, `levels` сцены
+- Индикатор статуса сервера (зелёный / красный / "Checking…") обновляется при монтировании компонента
+- При ошибке сервера кнопка отключается; статус `serverOk === false` показывает инструкцию `npm run server`
 
 ---
 
@@ -386,14 +466,15 @@ CAPTURE_VIEW, TOGGLE_FLIP_ARRIVAL_YAW.
 packages/viewer/
   index.html                  — подключает marzipano.js и app.js как module
   app.js                      — загрузка tour.json, инициализация viewer и сцен
-  style.css                   — базовые стили, стили хотспотов и InfoPanel
+  i18n.js                     — словарь uz/ru/en + t(key) + определение lang из URL
+  style.css                   — базовые стили, хотспоты, InfoPanel, exit-кнопка
   marzipano.js                — библиотека (не модифицируется)
   hotspots/
     NavHotspot.js             — хотспот перехода (DOM-элемент с yaw/pitch)
     InfoHotspot.js            — хотспот информации (DOM-элемент)
     InfoPanel.js              — DOM-панель: текст + фото + YouTube/video
   transitions/
-    TransitionEngine.js       — оркестрация Zoom + Fade + Land
+    TransitionEngine.js       — оркестрация Zoom + Fade
     easing.js                 — easeInOutQuad, easeOutCubic, easeInQuad
   tour.json                   — placeholder для разработки
 ```
@@ -403,20 +484,22 @@ packages/viewer/
 2. Для каждой сцены: `CubeGeometry(levels)` + `ImageUrlSource` + `RectilinearView` → `viewer.createScene()`
 3. `TransitionEngine` — создаётся один раз, управляет переходами
 4. Для каждого хотспота сцены: `NavHotspot.create()` или `InfoHotspot.create()`
-5. `defaultEntry.marzipanoScene.switchTo()` — показ стартовой сцены
+5. Стартовая сцена: `?scene=` URL-параметр → `defaultSceneId` → первая сцена в массиве
+6. `startEntry.marzipanoScene.switchTo()` — показ стартовой сцены
 
-**TransitionEngine — три фазы перехода:**
+**TransitionEngine — две фазы перехода (через хотспот):**
 ```
-t=0:    from.lookTo(hotspot, WIDE_FOV=1.75, 80ms)            // вдох: FOV 90°→100°
-t=80:   from.lookTo(hotspot, ZOOM_IN_FOV=0.35, 520ms)        // рывок: FOV 100°→20°
-t=444:  to.view.setParameters(targetYaw/pitch, ZOOM_IN_FOV)
+t=0:    from.lookTo(hotspot, WIDE_FOV=1.75, 80ms)            // вдох: FOV →100°
+t=80:   from.lookTo(hotspot, ZOOM_IN_FOV=0.35, 520ms)        // рывок: FOV →20°
+t=444:  to.view.setParameters(targetYaw/pitch/fov)
         to.switchTo(FADE_DURATION=280ms)                       // fade (на 70% рывка)
-t=724:  animateFov(ZOOM_IN→targetFov, 650ms, easeOutCubic)    // приземление: FOV 20°→90°
-t=1374: _busy = false
+t=724:  _busy = false
 ```
-Фаза приземления использует `requestAnimationFrame` + `easeOutCubic` (не `lookTo`) —
-это единственное место с RAF, поскольку здесь нет конкурирующей анимации lookTo.
-Остальное — `setTimeout` (Marzipano не имеет колбэков завершения анимации).
+Целевая сцена появляется сразу с `targetFov` (из hotspot.targetFov) — без фазы
+приземления, чтобы не создавать ощущение отступления назад.
+
+**Прямой переход через postMessage** (`TOUR_NAVIGATE`): `switchTo(600ms)` без фаз
+zoom-in/out — используется для навигации из родительского фрейма (киоск).
 
 **InfoPanel:**
 - Открывается кликом на info-хотспот
@@ -428,7 +511,8 @@ t=1374: _busy = false
 - `vite.config.ts` — плагин `viewer-files`:
   - dev: middleware `/viewer/*` → `packages/viewer/*`
   - build: `generateBundle` → эмитирует все файлы viewer как `viewer/*` ассеты
-- `zipper.ts` — `downloadZip()` фетчит 9 файлов viewer с `/viewer/*`, упаковывает в ZIP вместе с `tour.json`
+- `zipper.ts` — `downloadZip()` фетчит 10 файлов viewer с `/viewer/*` (включая `i18n.js`), упаковывает в ZIP вместе с `tour.json`
+- `downloadZipWithTiles()` — дополнительно фетчит тайлы с локального сервера (`GET /api/tile/:id/files` + `/tiles/:id/:path`) для каждой сцены с `levels.length > 0`; результат — самодостаточный ZIP тура
 
 ---
 
@@ -439,6 +523,8 @@ t=1374: _busy = false
 **Что сделано:**
 - [x] Инициализирован monorepo (root package.json + workspaces)
 - [x] Создан пакет `tiler` — полностью реализован, флаг `--mobile`
+- [x] Исправлен `preview.jpg`: теперь вертикальный стрип 256×1536 (6 граней в порядке bdflru)
+- [x] Исправлен `manifest.json`: поле `sceneId` вместо `id`; editor принимает оба
 - [x] Создан пакет `editor` — полностью реализован
 - [x] `src/store/types.ts` — все TypeScript-типы схемы тура
 - [x] `src/store/tourStore.tsx` — Context + useReducer, 13 actions
@@ -451,16 +537,29 @@ t=1374: _busy = false
 - [x] `NavHotspotForm` — поля targetYaw/Pitch/Fov, кнопка "Apply" из capturedView
 - [x] `InfoHotspotForm` — поля title, text, imageUrl, videoUrl
 - [x] `exporter.ts` + `zipper.ts` — сериализация, ZIP с viewer-файлами, экспорт в папку
+- [x] `serverApi.ts` — транспортная абстракция: `checkServer`, `tileOnServer`, `fetchTileFiles`
+- [x] `zipper.ts` — `downloadZipWithTiles()`: полный ZIP тура с тайлами с локального сервера
+- [x] `SceneSettings` — кнопка "Tile on server ▶", статус сервера, авто-заполнение levels
+- [x] Создан пакет `server` — Express, `POST /api/tile`, `GET /tiles/*`, `GET /viewer/*`
+- [x] `npm run dev` — запускает server + editor одновременно через concurrently
 - [x] Создан пакет `viewer` — полностью реализован
 - [x] Реализован базовый viewer (Фаза 1)
-- [x] Реализован `TransitionEngine` (Фаза 2)
+- [x] Реализован `TransitionEngine` (Фаза 2, без фазы приземления)
 - [x] Реализована `InfoPanel` (Фаза 3)
+- [x] Кiosk IPC: `i18n.js` (uz/ru/en), кнопка выхода, `TOUR_EXIT` postMessage
+- [x] Навигация по `?scene=sceneId` (URL) и `TOUR_NAVIGATE` (postMessage)
+- [x] Beacon `TOUR_ACTIVITY`: throttle 2500 мс, capture-фаза, только в iframe
+- [x] Исправлен zoom: лимитер FOV, scroll wheel RAF, pinch-to-zoom
+- [x] Хотспоты масштабируются с FOV (`--hs-scale`); nav-хотспоты — эллипсы на полу
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Протестировать полный цикл (см. docs/TESTING.md): нарезать тестовую панораму tiler-ом
-(тайлы начинаются с z=0), расставить хотспоты в редакторе (авто-flip включён),
-экспортировать ZIP/папку, развернуть viewer и проверить переходы, InfoPanel, мобильные тайлы.
+Протестировать полный цикл с Вариантом B (локальный сервер):
+1. `npm run dev` — запускает server (порт 3333) + editor (порт 5173)
+2. Загрузить панораму в editor → кнопка "Tile on server ▶" → проверить levels в tour.json
+3. Расставить nav/info хотспоты
+4. Экспорт: "Download ZIP with tiles" → проверить структуру ZIP
+5. Встроить viewer в киоск, проверить `?lang=uz`, `?scene=`, `TOUR_NAVIGATE`, `TOUR_EXIT`
 
 **Известное ограничение редактора:**
 `PanoramaCanvas` загружает полное equirectangular-изображение как одну текстуру

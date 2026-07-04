@@ -1,6 +1,7 @@
 import { NavHotspot } from './hotspots/NavHotspot.js';
 import { InfoHotspot } from './hotspots/InfoHotspot.js';
 import { TransitionEngine } from './transitions/TransitionEngine.js';
+import { lang, t } from './i18n.js';
 
 function isMobile() {
   const mobileUA = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -28,6 +29,44 @@ async function resolveSceneData(sceneData) {
     return sceneData;
   }
 }
+
+function exitTour() {
+  window.parent.postMessage({ type: 'TOUR_EXIT' }, '*');
+}
+
+// Activity beacon: throttled postMessage to parent so the kiosk inactivity
+// timer resets while the user interacts inside the iframe.
+(function initActivityBeacon() {
+  if (window.parent === window) return;
+  const INTERVAL_MS = 2500;
+  let last = 0;
+  function ping() {
+    const now = Date.now();
+    if (now - last < INTERVAL_MS) return;
+    last = now;
+    window.parent.postMessage({ type: 'TOUR_ACTIVITY' }, '*');
+  }
+  const events = ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart', 'touchmove'];
+  const opts = { capture: true, passive: true };
+  events.forEach((ev) => window.addEventListener(ev, ping, opts));
+  window.addEventListener('beforeunload', () => {
+    events.forEach((ev) => window.removeEventListener(ev, ping, opts));
+  });
+})();
+
+// Exit button — fixed top-left, above viewer
+const exitBtn = document.createElement('button');
+exitBtn.className = 'exit-btn';
+exitBtn.textContent = t('btn.exit');
+exitBtn.addEventListener('click', exitTour);
+document.body.appendChild(exitBtn);
+
+// Global Escape: exit tour only when no info panel is open
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.querySelector('.info-panel-overlay')) {
+    exitTour();
+  }
+});
 
 async function init() {
   const tour = await fetch('tour.json').then(r => r.json());
@@ -66,7 +105,12 @@ async function init() {
   }
 
   const engine = new TransitionEngine(viewer, scenes);
-  let currentSceneId = tour.defaultSceneId || tour.scenes[0]?.id;
+
+  // Starting scene: ?scene=sceneId URL param → defaultSceneId → first scene
+  const urlSceneId = new URLSearchParams(location.search).get('scene');
+  let currentSceneId = (urlSceneId && scenes.has(urlSceneId))
+    ? urlSceneId
+    : (tour.defaultSceneId || tour.scenes[0]?.id);
 
   // Add hotspots for every scene (use original tour.scenes for hotspot data)
   for (const sceneData of tour.scenes) {
@@ -88,7 +132,26 @@ async function init() {
     }
   }
 
-  // Show default scene
+  // postMessage from kiosk: { type: 'TOUR_NAVIGATE', sceneId, yaw?, pitch?, fov? }
+  // Performs a direct crossfade to the target scene using its initialView
+  // (caller may override yaw/pitch/fov for a specific arrival direction).
+  window.addEventListener('message', (e) => {
+    if (e.data?.type !== 'TOUR_NAVIGATE') return;
+    const targetId = e.data.sceneId;
+    if (!targetId || !scenes.has(targetId) || targetId === currentSceneId) return;
+    const entry = scenes.get(targetId);
+    const iv = entry.data.initialView;
+    fovTarget = null;
+    entry.marzipanoScene.view().setParameters({
+      yaw:   e.data.yaw   ?? iv.yaw,
+      pitch: e.data.pitch ?? iv.pitch,
+      fov:   e.data.fov   ?? iv.fov,
+    });
+    entry.marzipanoScene.switchTo({ transitionDuration: 600 });
+    currentSceneId = targetId;
+  });
+
+  // Show starting scene
   const defaultEntry = scenes.get(currentSceneId);
   if (defaultEntry) {
     defaultEntry.marzipanoScene.switchTo();
@@ -184,5 +247,5 @@ async function init() {
 
 init().catch(err => {
   console.error('panotour: failed to load tour', err);
-  document.body.innerHTML = `<div style="color:#fff;padding:20px">Failed to load tour.json: ${err.message}</div>`;
+  document.body.innerHTML = `<div style="color:#fff;padding:20px">${t('error.load')}: ${err.message}</div>`;
 });
