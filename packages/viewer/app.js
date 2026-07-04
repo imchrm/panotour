@@ -3,6 +3,16 @@ import { InfoHotspot } from './hotspots/InfoHotspot.js';
 import { TransitionEngine } from './transitions/TransitionEngine.js';
 import { lang, t } from './i18n.js';
 
+const DEBUG = new URLSearchParams(location.search).has('debug');
+const log = (...args) => { if (DEBUG) console.log('[panotour]', ...args); };
+
+log('init', {
+  tourId:   location.pathname.split('/').filter(Boolean).at(-1) ?? '(root)',
+  lang,
+  scene:    new URLSearchParams(location.search).get('scene') ?? '(default)',
+  embedded: window.parent !== window,
+});
+
 function isMobile() {
   const mobileUA = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   // maxTouchPoints > 1 alone is unreliable: Windows touchscreen monitors
@@ -30,7 +40,8 @@ async function resolveSceneData(sceneData) {
   }
 }
 
-function exitTour() {
+function exitTour(reason) {
+  log(`-> TOUR_EXIT (${reason})`);
   window.parent.postMessage({ type: 'TOUR_EXIT' }, '*');
 }
 
@@ -44,6 +55,7 @@ function exitTour() {
     const now = Date.now();
     if (now - last < INTERVAL_MS) return;
     last = now;
+    log('-> TOUR_ACTIVITY');
     window.parent.postMessage({ type: 'TOUR_ACTIVITY' }, '*');
   }
   const events = ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart', 'touchmove'];
@@ -58,13 +70,13 @@ function exitTour() {
 const exitBtn = document.createElement('button');
 exitBtn.className = 'exit-btn';
 exitBtn.textContent = t('btn.exit');
-exitBtn.addEventListener('click', exitTour);
+exitBtn.addEventListener('click', () => exitTour('button'));
 document.body.appendChild(exitBtn);
 
 // Global Escape: exit tour only when no info panel is open
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !document.querySelector('.info-panel-overlay')) {
-    exitTour();
+    exitTour('Escape');
   }
 });
 
