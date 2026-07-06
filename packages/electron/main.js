@@ -3,6 +3,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const { execSync } = require('child_process');
 const path = require('path');
+const os = require('os');
 
 const {
   createProject,
@@ -10,7 +11,10 @@ const {
   saveProject,
   addSceneFile,
   deleteSceneFiles,
+  updateSceneTiling,
+  validateSceneId,
 } = require('./project');
+const { resolveTilerPath, runTiler, runPool } = require('./tiling');
 
 const DEV_SERVER_URL = 'http://localhost:5173';
 
@@ -122,6 +126,31 @@ function registerIpcHandlers() {
     const scenes = deleteSceneFiles(projectPath, sceneId);
     return { scenes };
   });
+
+  ipcMain.handle('tile:run', async (event, sceneId) => {
+    requireOpenProject();
+    return tileOne(event.sender, sceneId);
+  });
+
+  ipcMain.handle('tile:runAll', async (event, sceneIds) => {
+    requireOpenProject();
+    const concurrency = Math.max(1, os.cpus().length - 1);
+    return runPool(sceneIds, concurrency, (sceneId) =>
+      tileOne(event.sender, sceneId)
+        .then((result) => ({ ok: true, ...result }))
+        .catch((err) => ({ ok: false, sceneId, error: err.message })),
+    );
+  });
+}
+
+async function tileOne(sender, sceneId) {
+  validateSceneId(sceneId);
+  const tilerPath = resolveTilerPath(app.getAppPath(), process.execPath);
+  const result = await runTiler(tilerPath, projectPath, sceneId, (progress) => {
+    sender.send(`tile:progress:${sceneId}`, progress);
+  });
+  updateSceneTiling(projectPath, sceneId, result);
+  return result;
 }
 
 function requireOpenProject() {

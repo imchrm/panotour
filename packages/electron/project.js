@@ -86,6 +86,25 @@ function requireProject(projectDir) {
   }
 }
 
+function updateSceneTiling(projectDir, sceneId, tileResult) {
+  requireProject(projectDir);
+  validateSceneId(sceneId);
+  const data = openProject(projectDir);
+  let scene = data.scenes.find((s) => s.id === sceneId);
+  if (!scene) {
+    scene = { id: sceneId, sourceFile: `scenes/${sceneId}.jpg`, hotspots: [] };
+    data.scenes.push(scene);
+  }
+  scene.tilesPath   = tileResult.tilesPath;
+  scene.previewUrl  = tileResult.previewUrl;
+  scene.levels      = tileResult.levels;
+  scene.sourceHash  = tileResult.sourceHash;
+  scene.tiledAt     = tileResult.tiledAt;
+  if (tileResult.mobileLevels) scene.mobileLevels = tileResult.mobileLevels;
+  writeProjectFile(projectDir, data);
+  return scene;
+}
+
 function writeProjectFile(projectDir, data) {
   fs.writeFileSync(
     path.join(projectDir, PROJECT_FILE),
@@ -101,5 +120,7 @@ module.exports = {
   addSceneFile,
   deleteSceneFiles,
   listSceneIds,
+  updateSceneTiling,
+  validateSceneId,
   PROJECT_FILE,
 };
