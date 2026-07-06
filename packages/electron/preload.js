@@ -9,4 +9,13 @@ contextBridge.exposeInMainWorld('electronApi', {
   saveProject:   (data) => ipcRenderer.invoke('project:save', data),
   addScene:      (sceneId, srcPath) => ipcRenderer.invoke('scene:add', sceneId, srcPath),
   deleteScene:   (sceneId)          => ipcRenderer.invoke('scene:delete', sceneId),
+  tileScene:     (sceneId, onProgress) => {
+    const channel = `tile:progress:${sceneId}`;
+    const listener = (_event, progress) => onProgress(progress);
+    if (onProgress) ipcRenderer.on(channel, listener);
+    return ipcRenderer.invoke('tile:run', sceneId).finally(() => {
+      if (onProgress) ipcRenderer.removeListener(channel, listener);
+    });
+  },
+  tileAll:       (sceneIds) => ipcRenderer.invoke('tile:runAll', sceneIds),
 });
