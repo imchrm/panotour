@@ -1,7 +1,8 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
 const { execSync } = require('child_process');
+const { pathToFileURL } = require('url');
 const path = require('path');
 const os = require('os');
 
@@ -15,11 +16,26 @@ const {
   validateSceneId,
 } = require('./project');
 const { resolveTilerPath, runTiler, runPool } = require('./tiling');
+const {
+  PREVIEW_SCHEME,
+  writePreviewTour,
+  resolveViewerDir,
+  resolvePreviewFile,
+} = require('./preview');
 
 const DEV_SERVER_URL = 'http://localhost:5173';
 
-let mainWindow  = null;
-let projectPath = null;
+let mainWindow    = null;
+let projectPath   = null;
+let previewWindow = null;
+let previewDir    = null;
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: PREVIEW_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+  },
+]);
 
 function checkNodeJs() {
   try {
@@ -132,6 +148,29 @@ function registerIpcHandlers() {
     return tileOne(event.sender, sceneId);
   });
 
+  ipcMain.handle('preview:open', async (_event, tourJson, opts = {}) => {
+    requireOpenProject();
+    previewDir = writePreviewTour(tourJson);
+    const query = opts.sceneId ? `?scene=${encodeURIComponent(opts.sceneId)}` : '';
+    const url = `${PREVIEW_SCHEME}://preview/index.html${query}`;
+    if (previewWindow && !previewWindow.isDestroyed()) {
+      previewWindow.loadURL(url);
+      previewWindow.focus();
+    } else {
+      previewWindow = new BrowserWindow({
+        width: 1280,
+        height: 800,
+        title: 'Panotour Preview',
+        webPreferences: { contextIsolation: true, nodeIntegration: false },
+      });
+      previewWindow.loadURL(url);
+      previewWindow.on('closed', () => {
+        previewWindow = null;
+      });
+    }
+    return { previewDir };
+  });
+
   ipcMain.handle('tile:runAll', async (event, sceneIds) => {
     requireOpenProject();
     const concurrency = Math.max(1, os.cpus().length - 1);
@@ -159,8 +198,30 @@ function requireOpenProject() {
   }
 }
 
+function registerPreviewProtocol() {
+  protocol.handle(PREVIEW_SCHEME, (request) => {
+    let pathname;
+    try {
+      pathname = new URL(request.url).pathname;
+    } catch {
+      return new Response('Bad request', { status: 400 });
+    }
+    if (!previewDir || !projectPath) {
+      return new Response('No preview', { status: 404 });
+    }
+    const file = resolvePreviewFile(pathname, {
+      previewDir,
+      projectDir: projectPath,
+      viewerDir: resolveViewerDir(app.getAppPath(), process.execPath),
+    });
+    if (!file) return new Response('Not found', { status: 404 });
+    return net.fetch(pathToFileURL(file).toString());
+  });
+}
+
 app.whenReady().then(() => {
   if (!checkNodeJs()) return;
+  registerPreviewProtocol();
   registerIpcHandlers();
   createWindow();
 
