@@ -102,6 +102,74 @@
 
 ---
 
+## Electron-редактор (планирование завершено, реализация — следующий этап)
+
+> Заменяет browser-based editor + Express-сервер (Variant B) единым desktop-приложением.
+> Подробный план: `docs/electron-agent-briefing.md`
+
+### Фаза 0 — Управление проектом
+- [ ] **0.1** Scaffold: `packages/electron/` — `electron-builder`, `electron`, preload-скрипт
+- [ ] **0.2** `main.js` — `BrowserWindow`, IPC-канал `main↔renderer`, `app.getAppPath()`
+- [ ] **0.3** Проверка Node.js при запуске: `child_process.execSync('node -e ""')` →
+      если не найден — `dialog.showMessageBoxSync` с инструкцией; приложение завершается
+- [ ] **0.4** Диалог «Создать проект»: `showSaveDialog` → создать папку + `project.json` + `scenes/` + `tiles/` + `media/`
+- [ ] **0.5** Диалог «Открыть проект»: `showOpenDialog` → читать `project.json`, валидация `schemaVersion`
+- [ ] **0.6** «Сохранить» (`Ctrl+S`): запись `project.json` (тихо, без диалога)
+- [ ] **0.7** Автосохранение: дебаунс 3 с после каждого изменения store
+
+### Фаза 1 — Сцены
+- [ ] **1.1** «Добавить сцену»: `showOpenDialog` JPEG → `fs.copyFile` → `scenes/{sceneId}.jpg`
+- [ ] **1.2** Переименовать сцену: inline-редактирование → `displayName` в `project.json`
+- [ ] **1.3** Удалить сцену: удалить из `project.json` + `scenes/`, `tiles/`, `tiles/..-mobile/` (рекурсивно);
+      очистить хотспоты с битыми ссылками в других сценах
+- [ ] **1.4** Порядок сцен: drag-and-drop в списке → обновить порядок
+- [ ] **1.5** Начальная сцена: переключатель «Начальная» → ровно одна отмечена
+- [ ] **1.6** Thumbnail в списке: `tiles/{sceneId}/preview.jpg` если тайлинг выполнен, иначе placeholder
+
+### Фаза 2 — Тайлинг
+- [ ] **2.1** Кнопка «Нарезать» у сцены: `child_process.spawn('node', ['tiler.js', '--input', scenePath, '--output', tilesDir, '--id', sceneId, '--mobile'])`
+- [ ] **2.2** Кнопка «Нарезать всё»: очередь сцен без актуальных тайлов
+- [ ] **2.3** Парсинг stdout тайлера → прогресс-бар / spinner рядом со сценой
+- [ ] **2.4** `project.json`: поле `scene.tiledAt` + хеш исходника (`sha1`); индикатор «актуально / устарело / не нарезано»
+- [ ] **2.5** Предупреждение «тайлы устарели» при изменении JPEG + кнопка «Перенарезать»
+- [ ] **2.6** Параллельная очередь: concurrency = `os.cpus().length - 1`; общий прогресс «12 / 87 сцен»
+
+### Фаза 3 — Параметры тура
+- [ ] **3.1** Поля: название тура, `defaultLang` (ru/uz/en), `autorotate.enabled` + `speed`
+- [ ] **3.2** Кнопка «Capture view» → записать текущий `initialView` (yaw/pitch/fov) для активной сцены
+
+### Фаза 4 — Nav-хотспоты
+- [ ] **4.1** Режим добавления: клик по canvas → yaw/pitch → создать хотспот
+- [ ] **4.2** Выбор целевой сцены из выпадающего списка
+- [ ] **4.3** Поля `targetYaw`, `targetPitch`, `targetFov` (опционально)
+- [ ] **4.4** Маркер на canvas (поверх Marzipano), выделение при клике
+- [ ] **4.5** Удалить хотспот
+
+### Фаза 5 — Info-хотспоты
+- [ ] **5.1** Добавить по клику на canvas (аналогично nav)
+- [ ] **5.2** Поля `title`, `text` (multiline textarea)
+- [ ] **5.3** Изображение: `showOpenDialog` → `fs.copyFile` → `media/`, относительный путь
+- [ ] **5.4** Видео: `showOpenDialog` (mp4) → `media/` или YouTube URL
+
+### Фаза 6 — Предпросмотр
+- [ ] **6.1** Кнопка «Предпросмотр»: генерировать `tour.json` во временную папку (temp)
+- [ ] **6.2** Открыть отдельный `BrowserWindow` с `packages/viewer/index.html` + `tour.json`
+- [ ] **6.3** «Обновить предпросмотр»: перегенерировать `tour.json` + reload окна
+
+### Фаза 7 — Экспорт
+- [ ] **7.1** Валидация: предупреждение о сценах без тайлов, без хотспотов, с битыми ссылками
+- [ ] **7.2** «Экспорт в папку»: `showOpenDialog` → копировать `tiles/` + `media/` + `packages/viewer/*` + `tour.json`
+- [ ] **7.3** «Экспорт ZIP»: JSZip в main-процессе → `fs.writeFile` → сохранить через `showSaveDialog`
+- [ ] **7.4** `shell.openPath(outputDir)` — открыть папку в Проводнике после экспорта
+
+### Дистрибуция
+- [ ] **D.1** `electron-builder` target: `portable` (один `.exe`, без установки, Windows x64)
+- [ ] **D.2** `extraFiles`: `packages/tiler/` + `node_modules/sharp` + deps рядом с `.exe`
+- [ ] **D.3** В `main.js`: найти `tiler.js` относительно `app.getAppPath()` (не `__dirname`)
+- [ ] **D.4** README: инструкция установки Node.js (ссылка на nodejs.org) как предварительное условие
+
+---
+
 ## Функциональные идеи (backlog)
 
 - [~] Тайлинг прямо в браузере (WebAssembly libvips) — не планируется: требует COOP/COEP
