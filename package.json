@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "editor":       "npm run dev --workspace=packages/editor",
+    "electron":     "npm run start --workspace=packages/electron",
     "server":       "node packages/server/server.js",
     "dev":          "concurrently -n server,editor -c cyan,green \"npm run server\" \"npm run editor\"",
     "tiler":        "npm run --workspace=packages/tiler",
