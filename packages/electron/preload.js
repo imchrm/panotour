@@ -18,4 +18,5 @@ contextBridge.exposeInMainWorld('electronApi', {
     });
   },
   tileAll:       (sceneIds) => ipcRenderer.invoke('tile:runAll', sceneIds),
+  openPreview:   (tourJson, opts) => ipcRenderer.invoke('preview:open', tourJson, opts),
 });
