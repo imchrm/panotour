@@ -5,9 +5,14 @@ const fs = require('fs');
 const archiver = require('archiver');
 
 function tourJsonContent(tourJson) {
-  return typeof tourJson === 'string'
-    ? tourJson
-    : JSON.stringify(tourJson, null, 2) + '\n';
+  if (typeof tourJson === 'string') {
+    JSON.parse(tourJson);
+    return tourJson;
+  }
+  if (tourJson === null || typeof tourJson !== 'object') {
+    throw new Error(`Invalid tour data: expected object or JSON string, got ${typeof tourJson}`);
+  }
+  return JSON.stringify(tourJson, null, 2) + '\n';
 }
 
 function exportToFolder(outDir, roots, tourJson) {
