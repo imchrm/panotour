@@ -10,5 +10,8 @@
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1"
   }
 }

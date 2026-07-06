@@ -19,4 +19,6 @@ contextBridge.exposeInMainWorld('electronApi', {
   },
   tileAll:       (sceneIds) => ipcRenderer.invoke('tile:runAll', sceneIds),
   openPreview:   (tourJson, opts) => ipcRenderer.invoke('preview:open', tourJson, opts),
+  exportFolder:  (tourJson, opts) => ipcRenderer.invoke('export:folder', tourJson, opts),
+  exportZip:     (tourJson, opts) => ipcRenderer.invoke('export:zip', tourJson, opts),
 });

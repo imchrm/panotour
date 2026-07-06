@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
 const { execSync } = require('child_process');
 const { pathToFileURL } = require('url');
 const path = require('path');
@@ -22,6 +22,7 @@ const {
   resolveViewerDir,
   resolvePreviewFile,
 } = require('./preview');
+const { exportToFolder, exportToZip } = require('./export');
 
 const DEV_SERVER_URL = 'http://localhost:5173';
 
@@ -171,6 +172,41 @@ function registerIpcHandlers() {
     return { previewDir };
   });
 
+  ipcMain.handle('export:folder', async (_event, tourJson, opts = {}) => {
+    requireOpenProject();
+    let dir = opts.dirPath;
+    if (!dir) {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Экспорт тура в папку',
+        buttonLabel: 'Экспортировать',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+      dir = result.filePaths[0];
+    }
+    exportToFolder(dir, exportRoots(), tourJson);
+    shell.openPath(dir);
+    return { canceled: false, exportPath: dir };
+  });
+
+  ipcMain.handle('export:zip', async (_event, tourJson, opts = {}) => {
+    requireOpenProject();
+    let file = opts.filePath;
+    if (!file) {
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Экспорт тура в ZIP',
+        buttonLabel: 'Сохранить',
+        defaultPath: 'tour.zip',
+        filters: [{ name: 'ZIP', extensions: ['zip'] }],
+      });
+      if (result.canceled || !result.filePath) return { canceled: true };
+      file = result.filePath;
+    }
+    await exportToZip(file, exportRoots(), tourJson);
+    shell.showItemInFolder(file);
+    return { canceled: false, exportPath: file };
+  });
+
   ipcMain.handle('tile:runAll', async (event, sceneIds) => {
     requireOpenProject();
     const concurrency = Math.max(1, os.cpus().length - 1);
@@ -190,6 +226,13 @@ async function tileOne(sender, sceneId) {
   });
   updateSceneTiling(projectPath, sceneId, result);
   return result;
+}
+
+function exportRoots() {
+  return {
+    projectDir: projectPath,
+    viewerDir: resolveViewerDir(app.getAppPath(), process.execPath),
+  };
 }
 
 function requireOpenProject() {
