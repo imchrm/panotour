@@ -40,10 +40,50 @@ function openProject(projectDir) {
 }
 
 function saveProject(projectDir, data) {
+  requireProject(projectDir);
+  writeProjectFile(projectDir, data);
+}
+
+function addSceneFile(projectDir, sceneId, srcPath) {
+  requireProject(projectDir);
+  validateSceneId(sceneId);
+  if (!fs.existsSync(srcPath)) {
+    throw new Error(`Source file not found: ${srcPath}`);
+  }
+  const scenesDir = path.join(projectDir, 'scenes');
+  fs.mkdirSync(scenesDir, { recursive: true });
+  const destFile = path.join(scenesDir, `${sceneId}.jpg`);
+  fs.copyFileSync(srcPath, destFile);
+  return { sceneId, sourceFile: `scenes/${sceneId}.jpg` };
+}
+
+function deleteSceneFiles(projectDir, sceneId) {
+  requireProject(projectDir);
+  validateSceneId(sceneId);
+  fs.rmSync(path.join(projectDir, 'scenes', `${sceneId}.jpg`), { force: true });
+  fs.rmSync(path.join(projectDir, 'tiles', sceneId), { recursive: true, force: true });
+  return listSceneIds(projectDir);
+}
+
+function listSceneIds(projectDir) {
+  const scenesDir = path.join(projectDir, 'scenes');
+  if (!fs.existsSync(scenesDir)) return [];
+  return fs.readdirSync(scenesDir)
+    .filter((f) => f.toLowerCase().endsWith('.jpg'))
+    .map((f) => f.slice(0, -4))
+    .sort();
+}
+
+function validateSceneId(sceneId) {
+  if (typeof sceneId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sceneId)) {
+    throw new Error(`Invalid scene id: ${sceneId}`);
+  }
+}
+
+function requireProject(projectDir) {
   if (!fs.existsSync(path.join(projectDir, PROJECT_FILE))) {
     throw new Error(`Not a panotour project: ${projectDir}`);
   }
-  writeProjectFile(projectDir, data);
 }
 
 function writeProjectFile(projectDir, data) {
@@ -54,4 +94,12 @@ function writeProjectFile(projectDir, data) {
   );
 }
 
-module.exports = { createProject, openProject, saveProject, PROJECT_FILE };
+module.exports = {
+  createProject,
+  openProject,
+  saveProject,
+  addSceneFile,
+  deleteSceneFiles,
+  listSceneIds,
+  PROJECT_FILE,
+};

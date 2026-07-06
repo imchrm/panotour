@@ -4,7 +4,13 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const { execSync } = require('child_process');
 const path = require('path');
 
-const { createProject, openProject, saveProject } = require('./project');
+const {
+  createProject,
+  openProject,
+  saveProject,
+  addSceneFile,
+  deleteSceneFiles,
+} = require('./project');
 
 const DEV_SERVER_URL = 'http://localhost:5173';
 
@@ -89,12 +95,39 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('project:save', async (_event, data) => {
-    if (!projectPath) {
-      throw new Error('No project is open');
-    }
+    requireOpenProject();
     saveProject(projectPath, data);
     return { projectPath };
   });
+
+  ipcMain.handle('scene:add', async (_event, sceneId, srcPath) => {
+    requireOpenProject();
+    let src = srcPath;
+    if (!src) {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Добавить панораму',
+        buttonLabel: 'Добавить',
+        filters: [{ name: 'JPEG', extensions: ['jpg', 'jpeg'] }],
+        properties: ['openFile'],
+      });
+      if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+      src = result.filePaths[0];
+    }
+    const scene = addSceneFile(projectPath, sceneId, src);
+    return { canceled: false, ...scene };
+  });
+
+  ipcMain.handle('scene:delete', async (_event, sceneId) => {
+    requireOpenProject();
+    const scenes = deleteSceneFiles(projectPath, sceneId);
+    return { scenes };
+  });
+}
+
+function requireOpenProject() {
+  if (!projectPath) {
+    throw new Error('No project is open');
+  }
 }
 
 app.whenReady().then(() => {
