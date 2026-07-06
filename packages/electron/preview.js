@@ -7,11 +7,17 @@ const os = require('os');
 const PREVIEW_SCHEME = 'ptour';
 
 function writePreviewTour(tourJson) {
+  let content;
+  if (typeof tourJson === 'string') {
+    JSON.parse(tourJson);
+    content = tourJson;
+  } else if (tourJson !== null && typeof tourJson === 'object') {
+    content = JSON.stringify(tourJson, null, 2) + '\n';
+  } else {
+    throw new Error(`Invalid tour data: expected object or JSON string, got ${typeof tourJson}`);
+  }
   const dir = path.join(os.tmpdir(), 'panotour-preview');
   fs.mkdirSync(dir, { recursive: true });
-  const content = typeof tourJson === 'string'
-    ? tourJson
-    : JSON.stringify(tourJson, null, 2) + '\n';
   fs.writeFileSync(path.join(dir, 'tour.json'), content, 'utf8');
   return dir;
 }
