@@ -1,0 +1,24 @@
+appId: com.panotour.editor
+productName: Panotour Editor
+directories:
+  output: dist
+files:
+  - main.js
+  - preload.js
+  - project.js
+  - tiling.js
+  - preview.js
+  - export.js
+  - package.json
+  - from: ../editor/dist
+    to: renderer
+win:
+  target: portable
+extraFiles:
+  - from: stage/tiler
+    to: tiler
+  - from: ../viewer
+    to: viewer
+    filter:
+      - "**/*"
+      - "!tour.json"

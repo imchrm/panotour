@@ -12,6 +12,7 @@ const {
   saveProject,
   addSceneFile,
   deleteSceneFiles,
+  readSceneFile,
   updateSceneTiling,
   validateSceneId,
 } = require('./project');
@@ -136,6 +137,11 @@ function registerIpcHandlers() {
     }
     const scene = addSceneFile(projectPath, sceneId, src);
     return { canceled: false, ...scene };
+  });
+
+  ipcMain.handle('scene:read', async (_event, sceneId) => {
+    requireOpenProject();
+    return readSceneFile(projectPath, sceneId);
   });
 
   ipcMain.handle('scene:delete', async (_event, sceneId) => {

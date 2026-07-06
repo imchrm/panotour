@@ -5,6 +5,7 @@ import { PanoramaCanvas } from './components/PanoramaCanvas/PanoramaCanvas';
 import { SceneSettings } from './components/SceneSettings/SceneSettings';
 import { HotspotPanel } from './components/HotspotPanel/HotspotPanel';
 import { ExportButton } from './components/ExportButton/ExportButton';
+import { ProjectBar } from './components/ProjectBar/ProjectBar';
 import './App.css';
 
 function EditorApp() {
@@ -24,6 +25,7 @@ function EditorApp() {
     <div className="app">
       <header className="app-header">
         <span className="app-title">panotour editor</span>
+        <ProjectBar />
         <ExportButton />
       </header>
       <div className="app-body">

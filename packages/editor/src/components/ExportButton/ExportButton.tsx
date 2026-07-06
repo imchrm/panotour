@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTour } from '../../store/tourStore';
 import { exportTour } from '../../lib/exporter';
 import { downloadTourJson, downloadZip, exportToFolder, hasFolderExport } from '../../lib/zipper';
+import { isElectron, getElectronApi } from '../../lib/electronApi';
 import styles from './ExportButton.module.css';
 
 export function ExportButton() {
@@ -22,7 +23,12 @@ export function ExportButton() {
     setBusy(true);
     setError(null);
     try {
-      await downloadZip(exportTour(state.tour));
+      const api = getElectronApi();
+      if (api) {
+        await api.exportZip(exportTour(state.tour));
+      } else {
+        await downloadZip(exportTour(state.tour));
+      }
     } catch (err: unknown) {
       setError((err as Error)?.message ?? 'Export failed');
     } finally {
@@ -35,7 +41,12 @@ export function ExportButton() {
     setBusy(true);
     setError(null);
     try {
-      await exportToFolder(exportTour(state.tour));
+      const api = getElectronApi();
+      if (api) {
+        await api.exportFolder(exportTour(state.tour));
+      } else {
+        await exportToFolder(exportTour(state.tour));
+      }
     } catch (err: unknown) {
       if ((err as { name?: string })?.name === 'AbortError') return;
       setError((err as Error)?.message ?? 'Export failed');
@@ -44,9 +55,34 @@ export function ExportButton() {
     }
   };
 
+  const handlePreview = async () => {
+    if (disabled || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await getElectronApi()?.openPreview(exportTour(state.tour), {
+        sceneId: state.activeSceneId ?? undefined,
+      });
+    } catch (err: unknown) {
+      setError((err as Error)?.message ?? 'Preview failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className={styles.wrap}>
       <div className={styles.group}>
+        {isElectron() && (
+          <button
+            className={styles.btn}
+            onClick={handlePreview}
+            disabled={disabled || busy}
+            title="Open tour preview"
+          >
+            ▶ Preview
+          </button>
+        )}
         <button
           className={styles.btn}
           onClick={handleJson}

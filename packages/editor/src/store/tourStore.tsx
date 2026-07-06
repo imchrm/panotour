@@ -21,6 +21,7 @@ interface EditorState {
 }
 
 type Action =
+  | { type: 'LOAD_TOUR'; defaultSceneId: string; scenes: EditorScene[] }
   | { type: 'ADD_SCENE'; scene: EditorScene }
   | { type: 'UPDATE_SCENE'; id: string; patch: Partial<EditorScene> }
   | { type: 'DELETE_SCENE'; id: string }
@@ -46,6 +47,14 @@ const initialState: EditorState = {
 
 function reducer(state: EditorState, action: Action): EditorState {
   switch (action.type) {
+    case 'LOAD_TOUR': {
+      const defaultSceneId = action.defaultSceneId || action.scenes[0]?.id || '';
+      return {
+        ...initialState,
+        tour: { version: state.tour.version, defaultSceneId, scenes: action.scenes },
+        activeSceneId: action.scenes[0]?.id ?? null,
+      };
+    }
     case 'ADD_SCENE': {
       const scenes = [...state.tour.scenes, action.scene];
       const defaultSceneId = state.tour.defaultSceneId || action.scene.id;
