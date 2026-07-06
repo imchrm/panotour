@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronApi', {
   saveProject:   (data) => ipcRenderer.invoke('project:save', data),
   addScene:      (sceneId, srcPath) => ipcRenderer.invoke('scene:add', sceneId, srcPath),
   deleteScene:   (sceneId)          => ipcRenderer.invoke('scene:delete', sceneId),
+  readScene:     (sceneId)          => ipcRenderer.invoke('scene:read', sceneId),
   tileScene:     (sceneId, onProgress) => {
     const channel = `tile:progress:${sceneId}`;
     const listener = (_event, progress) => onProgress(progress);

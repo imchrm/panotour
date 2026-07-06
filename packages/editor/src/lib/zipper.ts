@@ -1,7 +1,6 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import type { TourData } from '../store/types';
-import { SERVER_URL, fetchTileFiles } from './serverApi';
 
 const TOUR_JSON_INDENT = 2;
 
@@ -62,42 +61,6 @@ export async function downloadZip(tour: TourData, zipName = 'tour.zip'): Promise
   const zip = new JSZip();
   zip.file('tour.json', JSON.stringify(tour, null, TOUR_JSON_INDENT));
   await addViewerFiles(zip);
-  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-  saveAs(blob, zipName);
-}
-
-/**
- * Like downloadZip, but also fetches tiles from the local tiling server
- * for every scene that has levels (was tiled via "Tile on server").
- * Falls back to downloadZip if the server is unreachable.
- */
-export async function downloadZipWithTiles(
-  tour: TourData,
-  zipName = 'tour.zip',
-): Promise<void> {
-  const zip = new JSZip();
-  zip.file('tour.json', JSON.stringify(tour, null, TOUR_JSON_INDENT));
-  await addViewerFiles(zip);
-
-  // Add tiles for each scene that has been tiled
-  await Promise.all(
-    tour.scenes
-      .filter((s) => s.levels.length > 0)
-      .map(async (scene) => {
-        const sceneId = scene.id;
-        const files = await fetchTileFiles(sceneId);
-        await Promise.all(
-          files.map(async (relPath) => {
-            const url = `${SERVER_URL}/tiles/${encodeURIComponent(sceneId)}/${relPath}`;
-            const res = await fetch(url);
-            if (!res.ok) return;
-            const buf = await res.arrayBuffer();
-            zip.file(`tiles/${sceneId}/${relPath}`, buf);
-          })
-        );
-      })
-  );
-
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   saveAs(blob, zipName);
 }

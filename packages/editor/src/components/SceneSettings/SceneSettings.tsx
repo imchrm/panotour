@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTour } from '../../store/tourStore';
 import type { TileLevel } from '../../store/types';
-import { checkServer, tileOnServer, SERVER_URL } from '../../lib/serverApi';
+import { isElectron, getElectronApi } from '../../lib/electronApi';
 import styles from './SceneSettings.module.css';
 
 const RAD = Math.PI / 180;
@@ -11,15 +11,9 @@ export function SceneSettings() {
   const activeScene = state.tour.scenes.find((s) => s.id === state.activeSceneId);
   const manifestInputRef = useRef<HTMLInputElement>(null);
 
-  const [serverOk, setServerOk] = useState<boolean | null>(null);
   const [tiling, setTiling]     = useState(false);
   const [tileMsg, setTileMsg]   = useState<{ ok: boolean; text: string } | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    checkServer().then((ok) => { if (alive) setServerOk(ok); });
-    return () => { alive = false; };
-  }, []);
+  const [progress, setProgress] = useState('');
 
   if (!activeScene) return null;
 
@@ -54,11 +48,15 @@ export function SceneSettings() {
   }
 
   async function handleTile() {
-    if (!activeScene?.panoramaObjectUrl) return;
+    const api = getElectronApi();
+    if (!api || !activeScene) return;
     setTiling(true);
     setTileMsg(null);
+    setProgress('');
     try {
-      const result = await tileOnServer(activeScene.panoramaObjectUrl, activeScene.id);
+      const result = await api.tileScene(activeScene.id, (p) => {
+        setProgress(p.trim());
+      });
       dispatch({
         type: 'UPDATE_SCENE',
         id: activeScene.id,
@@ -73,6 +71,7 @@ export function SceneSettings() {
       setTileMsg({ ok: false, text: err instanceof Error ? err.message : 'Tiling failed' });
     } finally {
       setTiling(false);
+      setProgress('');
     }
   }
 
@@ -131,30 +130,19 @@ export function SceneSettings() {
 
       <div className={styles.sectionTitle}>Tiles</div>
 
-      {/* Server tiling */}
-      {activeScene.panoramaObjectUrl && (
+      {isElectron() && (
         <div className={styles.field}>
           <button
             className={styles.tileBtn}
             onClick={handleTile}
-            disabled={tiling || serverOk === false}
-            title={
-              serverOk === false
-                ? `Server not running — start with: npm run server  (${SERVER_URL})`
-                : 'Tile panorama on local server and auto-fill levels'
-            }
+            disabled={tiling}
+            title="Tile panorama and auto-fill levels"
           >
-            {tiling ? 'Tiling…' : 'Tile on server ▶'}
+            {tiling ? 'Tiling…' : 'Tile ▶'}
           </button>
-          <div className={
-            serverOk === true  ? styles.serverOk   :
-            serverOk === false ? styles.serverWarn :
-            styles.levelsWarn
-          }>
-            {serverOk === true  ? `Server ready (${SERVER_URL})` :
-             serverOk === false ? `Server offline — npm run server` :
-             'Checking server…'}
-          </div>
+          {tiling && progress && (
+            <div className={styles.levelsWarn}>{progress}</div>
+          )}
           {tileMsg && (
             <div className={tileMsg.ok ? styles.levelsOk : styles.levelsWarn}>
               {tileMsg.text}

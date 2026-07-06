@@ -65,6 +65,16 @@ function deleteSceneFiles(projectDir, sceneId) {
   return listSceneIds(projectDir);
 }
 
+function readSceneFile(projectDir, sceneId) {
+  requireProject(projectDir);
+  validateSceneId(sceneId);
+  const file = path.join(projectDir, 'scenes', `${sceneId}.jpg`);
+  if (!fs.existsSync(file)) {
+    throw new Error(`Panorama not found: ${file}`);
+  }
+  return fs.readFileSync(file);
+}
+
 function listSceneIds(projectDir) {
   const scenesDir = path.join(projectDir, 'scenes');
   if (!fs.existsSync(scenesDir)) return [];
@@ -119,6 +129,7 @@ module.exports = {
   saveProject,
   addSceneFile,
   deleteSceneFiles,
+  readSceneFile,
   listSceneIds,
   updateSceneTiling,
   validateSceneId,
