@@ -48,6 +48,7 @@ export interface ElectronApi {
   createProject(opts?: { name?: string; dirPath?: string }): Promise<ProjectResult>;
   openProject(opts?: { dirPath?: string }): Promise<ProjectResult>;
   saveProject(data: ProjectData): Promise<{ projectPath: string }>;
+  currentProject(): Promise<{ projectPath: string; project: ProjectData } | null>;
   addScene(sceneId: string, srcPath?: string): Promise<{ canceled: boolean; sceneId?: string; sourceFile?: string }>;
   deleteScene(sceneId: string): Promise<{ scenes: string[] }>;
   readScene(sceneId: string): Promise<Uint8Array>;
@@ -96,6 +97,15 @@ export async function createProjectFlow(name?: string): Promise<ProjectResult> {
   const result = await api.createProject({ name });
   if (!result.canceled && result.projectPath) currentProjectPath = result.projectPath;
   return result;
+}
+
+export async function restoreProjectFlow(): Promise<ProjectResult | null> {
+  const api = getElectronApi();
+  if (!api) return null;
+  const current = await api.currentProject();
+  if (!current) return null;
+  currentProjectPath = current.projectPath;
+  return { canceled: false, projectPath: current.projectPath, project: current.project };
 }
 
 export async function openProjectFlow(): Promise<ProjectResult> {

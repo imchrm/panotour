@@ -4,6 +4,7 @@ import {
   isElectron,
   createProjectFlow,
   openProjectFlow,
+  restoreProjectFlow,
   saveProjectFlow,
   getProjectPath,
   projectToEditorScenes,
@@ -19,6 +20,20 @@ export function ProjectBar() {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const skipAutosaveRef = useRef(true);
+
+  useEffect(() => {
+    if (!isElectron()) return;
+    let alive = true;
+    restoreProjectFlow()
+      .then(async (result) => {
+        if (!alive || !result || result.canceled || !result.project) return;
+        await loadIntoStore(result.project);
+        setMessage({ ok: true, text: `Restored: ${result.projectPath}` });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!isElectron() || !getProjectPath()) return;
