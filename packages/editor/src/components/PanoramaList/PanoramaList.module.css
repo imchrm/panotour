@@ -137,3 +137,121 @@
   font-size: 12px;
   color: #e57373;
 }
+
+.tileControls {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tileAllBtn {
+  width: 100%;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tileAllBtn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.tileAllBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.progressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.progressBar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+
+.progressText {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selectAllRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.itemCheck {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dotTiled {
+  background: #6cbf5a;
+  border-color: #6cbf5a;
+}
+
+.dotError {
+  background: #e05252;
+  border-color: #e05252;
+}
+
+.tiledMark {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.levelsBadge {
+  font-size: 10px;
+  color: #6cbf5a;
+  line-height: 1;
+}
+
+.spinner {
+  width: 9px;
+  height: 9px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
