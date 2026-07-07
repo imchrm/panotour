@@ -56,11 +56,9 @@ export function ProjectBar() {
 
   async function loadIntoStore(project: ProjectData) {
     const scenes = projectToEditorScenes(project);
-    await Promise.all(
-      scenes.map(async (scene) => {
-        scene.panoramaObjectUrl = await readSceneObjectUrl(scene.id);
-      }),
-    );
+    for (const scene of scenes) {
+      scene.panoramaObjectUrl = await readSceneObjectUrl(scene.id);
+    }
     dispatch({
       type: 'LOAD_TOUR',
       defaultSceneId: project.defaultSceneId ?? '',

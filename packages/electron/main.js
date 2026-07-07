@@ -24,6 +24,7 @@ const {
   resolvePreviewFile,
 } = require('./preview');
 const { exportToFolder, exportToZip } = require('./export');
+const log = require('./log');
 
 const DEV_SERVER_URL = 'http://localhost:5173';
 
@@ -61,6 +62,18 @@ function checkNodeJs() {
   }
 }
 
+function wireWindowLogging(win, name) {
+  win.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    const source = `${name}:console`;
+    const text = `${message} (${sourceId}:${line})`;
+    if (level >= 3) log.error(source, text);
+    else if (level === 2) log.warn(source, text);
+    else log.info(source, text);
+  });
+  win.webContents.on('unresponsive', () => log.error(name, 'window unresponsive'));
+  win.webContents.on('responsive', () => log.info(name, 'window responsive again'));
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -71,6 +84,7 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  wireWindowLogging(mainWindow, 'editor');
 
   if (app.isPackaged) {
     mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
@@ -81,13 +95,32 @@ function createWindow() {
     });
   }
 
+  if (!app.isPackaged || process.env.PANOTOUR_DEVTOOLS === '1') {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
+function handle(channel, fn) {
+  ipcMain.handle(channel, async (event, ...args) => {
+    const started = Date.now();
+    log.info('ipc', `-> ${channel}(${log.summarize(args)})`);
+    try {
+      const result = await fn(event, ...args);
+      log.info('ipc', `<- ${channel} ok ${Date.now() - started}ms`);
+      return result;
+    } catch (err) {
+      log.error('ipc', `<- ${channel} FAILED ${Date.now() - started}ms: ${err.message}`);
+      throw err;
+    }
+  });
+}
+
 function registerIpcHandlers() {
-  ipcMain.handle('project:create', async (_event, opts = {}) => {
+  handle('project:create', async (_event, opts = {}) => {
     let dir = opts.dirPath;
     if (!dir) {
       const result = await dialog.showSaveDialog(mainWindow, {
@@ -104,7 +137,7 @@ function registerIpcHandlers() {
     return { canceled: false, projectPath: dir, project: data };
   });
 
-  ipcMain.handle('project:open', async (_event, opts = {}) => {
+  handle('project:open', async (_event, opts = {}) => {
     let dir = opts.dirPath;
     if (!dir) {
       const result = await dialog.showOpenDialog(mainWindow, {
@@ -120,18 +153,18 @@ function registerIpcHandlers() {
     return { canceled: false, projectPath: dir, project: data };
   });
 
-  ipcMain.handle('project:current', async () => {
+  handle('project:current', async () => {
     if (!projectPath) return null;
     return { projectPath, project: openProject(projectPath) };
   });
 
-  ipcMain.handle('project:save', async (_event, data) => {
+  handle('project:save', async (_event, data) => {
     requireOpenProject();
     saveProject(projectPath, data);
     return { projectPath };
   });
 
-  ipcMain.handle('scene:add', async (_event, sceneId, srcPath) => {
+  handle('scene:add', async (_event, sceneId, srcPath) => {
     requireOpenProject();
     let src = srcPath;
     if (!src) {
@@ -148,23 +181,23 @@ function registerIpcHandlers() {
     return { canceled: false, ...scene };
   });
 
-  ipcMain.handle('scene:read', async (_event, sceneId) => {
+  handle('scene:read', async (_event, sceneId) => {
     requireOpenProject();
     return readSceneFile(projectPath, sceneId);
   });
 
-  ipcMain.handle('scene:delete', async (_event, sceneId) => {
+  handle('scene:delete', async (_event, sceneId) => {
     requireOpenProject();
     const scenes = deleteSceneFiles(projectPath, sceneId);
     return { scenes };
   });
 
-  ipcMain.handle('tile:run', async (event, sceneId) => {
+  handle('tile:run', async (event, sceneId) => {
     requireOpenProject();
     return tileOne(event.sender, sceneId);
   });
 
-  ipcMain.handle('preview:open', async (_event, tourJson, opts = {}) => {
+  handle('preview:open', async (_event, tourJson, opts = {}) => {
     requireOpenProject();
     previewDir = writePreviewTour(tourJson);
     const query = opts.sceneId ? `?scene=${encodeURIComponent(opts.sceneId)}` : '';
@@ -179,6 +212,7 @@ function registerIpcHandlers() {
         title: 'Panotour Preview',
         webPreferences: { contextIsolation: true, nodeIntegration: false },
       });
+      wireWindowLogging(previewWindow, 'preview');
       previewWindow.loadURL(url);
       previewWindow.on('closed', () => {
         previewWindow = null;
@@ -187,7 +221,7 @@ function registerIpcHandlers() {
     return { previewDir };
   });
 
-  ipcMain.handle('export:folder', async (_event, tourJson, opts = {}) => {
+  handle('export:folder', async (_event, tourJson, opts = {}) => {
     requireOpenProject();
     let dir = opts.dirPath;
     if (!dir) {
@@ -204,7 +238,7 @@ function registerIpcHandlers() {
     return { canceled: false, exportPath: dir };
   });
 
-  ipcMain.handle('export:zip', async (_event, tourJson, opts = {}) => {
+  handle('export:zip', async (_event, tourJson, opts = {}) => {
     requireOpenProject();
     let file = opts.filePath;
     if (!file) {
@@ -222,7 +256,7 @@ function registerIpcHandlers() {
     return { canceled: false, exportPath: file };
   });
 
-  ipcMain.handle('tile:runAll', async (event, sceneIds) => {
+  handle('tile:runAll', async (event, sceneIds) => {
     requireOpenProject();
     const concurrency = Math.max(1, os.cpus().length - 1);
     return runPool(sceneIds, concurrency, (sceneId) =>
@@ -277,7 +311,27 @@ function registerPreviewProtocol() {
   });
 }
 
+app.on('render-process-gone', (_event, _webContents, details) => {
+  log.error('app', `render-process-gone: ${JSON.stringify(details)}`);
+});
+
+app.on('child-process-gone', (_event, details) => {
+  log.error('app', `child-process-gone: ${JSON.stringify(details)}`);
+});
+
+process.on('uncaughtException', (err) => {
+  log.error('main', `uncaughtException: ${err.stack ?? err.message}`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  log.error('main', `unhandledRejection: ${reason}`);
+});
+
 app.whenReady().then(() => {
+  const logFile = log.init(path.join(app.getPath('userData'), 'logs'));
+  log.info('app', `started pid=${process.pid} electron=${process.versions.electron} packaged=${app.isPackaged}`);
+  log.info('app', `log file: ${logFile}`);
+  log.startMetrics(app);
   if (!checkNodeJs()) return;
   registerPreviewProtocol();
   registerIpcHandlers();
