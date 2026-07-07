@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTour } from '../../store/tourStore';
 import {
   isElectron,
@@ -17,6 +17,25 @@ export function ProjectBar() {
   const [busy, setBusy] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const skipAutosaveRef = useRef(true);
+
+  useEffect(() => {
+    if (!isElectron() || !getProjectPath()) return;
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        await saveProjectFlow(state.tour);
+        setSavedAt(new Date().toLocaleTimeString());
+      } catch (err: unknown) {
+        setMessage({ ok: false, text: `Autosave: ${(err as Error)?.message ?? 'failed'}` });
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [state.tour]);
 
   if (!isElectron()) return null;
 
@@ -67,6 +86,7 @@ export function ProjectBar() {
   const handleSave = () =>
     run('Save', async () => {
       await saveProjectFlow(state.tour);
+      setSavedAt(new Date().toLocaleTimeString());
       setMessage({ ok: true, text: 'Project saved' });
     });
 
@@ -84,6 +104,7 @@ export function ProjectBar() {
         Save
       </button>
       {projectName && <span className={styles.name}>{projectName}</span>}
+      {savedAt && <span className={styles.ok}>&#10003; {savedAt}</span>}
       {message && (
         <span className={message.ok ? styles.ok : styles.error}>{message.text}</span>
       )}

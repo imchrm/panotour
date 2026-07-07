@@ -1,6 +1,7 @@
 import type { Hotspot, InitialView, TileLevel, TourData } from '../store/types';
 import type { EditorScene } from '../store/tourStore';
 import { DEFAULT_FOV } from '../store/types';
+import { panoramaPreviewUrl } from './panoramaPreview';
 
 export interface ProjectScene {
   id: string;
@@ -77,7 +78,7 @@ export async function readSceneObjectUrl(sceneId: string): Promise<string | unde
   try {
     const data = await api.readScene(sceneId);
     const blob = new Blob([new Uint8Array(data)], { type: 'image/jpeg' });
-    return URL.createObjectURL(blob);
+    return await panoramaPreviewUrl(blob);
   } catch {
     return undefined;
   }
