@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useTour, DEFAULT_FOV } from '../../store/tourStore';
 import { isElectron, getElectronApi, getProjectPath, readSceneObjectUrl } from '../../lib/electronApi';
+import { panoramaPreviewUrl } from '../../lib/panoramaPreview';
 import styles from './PanoramaList.module.css';
 
 function newSceneId(): string {
@@ -30,9 +31,9 @@ export function PanoramaList() {
   }
 
   function handleFiles(files: FileList) {
-    Array.from(files).forEach((file) => {
+    Array.from(files).forEach(async (file) => {
       const id = newSceneId();
-      addSceneToStore(id, file.name.replace(/\.[^.]+$/, ''), URL.createObjectURL(file));
+      addSceneToStore(id, file.name.replace(/\.[^.]+$/, ''), await panoramaPreviewUrl(file));
     });
   }
 

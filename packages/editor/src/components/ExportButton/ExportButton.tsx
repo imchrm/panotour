@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTour } from '../../store/tourStore';
+import type { TourData } from '../../store/types';
 import { exportTour } from '../../lib/exporter';
 import { downloadTourJson, downloadZip, exportToFolder, hasFolderExport } from '../../lib/zipper';
 import { isElectron, getElectronApi } from '../../lib/electronApi';
@@ -12,6 +13,23 @@ export function ExportButton() {
 
   const disabled = state.tour.scenes.length === 0;
 
+  function tiledTour(): TourData | null {
+    const full = exportTour(state.tour);
+    const scenes = full.scenes.filter((s) => s.levels.length > 0);
+    const skipped = full.scenes.length - scenes.length;
+    if (scenes.length === 0) {
+      setError('No tiled scenes — run Tile on each scene first');
+      return null;
+    }
+    if (skipped > 0) {
+      setError(`Skipped ${skipped} untiled scene(s) — run Tile to include them`);
+    }
+    const defaultSceneId = scenes.some((s) => s.id === full.defaultSceneId)
+      ? full.defaultSceneId
+      : scenes[0].id;
+    return { ...full, defaultSceneId, scenes };
+  }
+
   const handleJson = () => {
     if (disabled) return;
     setError(null);
@@ -20,14 +38,16 @@ export function ExportButton() {
 
   const handleZip = async () => {
     if (disabled || busy) return;
-    setBusy(true);
     setError(null);
+    const tour = tiledTour();
+    if (!tour) return;
+    setBusy(true);
     try {
       const api = getElectronApi();
       if (api) {
-        await api.exportZip(exportTour(state.tour));
+        await api.exportZip(tour);
       } else {
-        await downloadZip(exportTour(state.tour));
+        await downloadZip(tour);
       }
     } catch (err: unknown) {
       setError((err as Error)?.message ?? 'Export failed');
@@ -38,14 +58,16 @@ export function ExportButton() {
 
   const handleFolder = async () => {
     if (disabled || busy) return;
-    setBusy(true);
     setError(null);
+    const tour = tiledTour();
+    if (!tour) return;
+    setBusy(true);
     try {
       const api = getElectronApi();
       if (api) {
-        await api.exportFolder(exportTour(state.tour));
+        await api.exportFolder(tour);
       } else {
-        await exportToFolder(exportTour(state.tour));
+        await exportToFolder(tour);
       }
     } catch (err: unknown) {
       if ((err as { name?: string })?.name === 'AbortError') return;
@@ -57,11 +79,14 @@ export function ExportButton() {
 
   const handlePreview = async () => {
     if (disabled || busy) return;
-    setBusy(true);
     setError(null);
+    const tour = tiledTour();
+    if (!tour) return;
+    setBusy(true);
     try {
-      await getElectronApi()?.openPreview(exportTour(state.tour), {
-        sceneId: state.activeSceneId ?? undefined,
+      const activeIncluded = tour.scenes.some((s) => s.id === state.activeSceneId);
+      await getElectronApi()?.openPreview(tour, {
+        sceneId: activeIncluded ? state.activeSceneId ?? undefined : undefined,
       });
     } catch (err: unknown) {
       setError((err as Error)?.message ?? 'Preview failed');

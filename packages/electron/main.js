@@ -27,6 +27,10 @@ const { exportToFolder, exportToZip } = require('./export');
 
 const DEV_SERVER_URL = 'http://localhost:5173';
 
+if (process.env.PANOTOUR_SOFTWARE_GL === '1') {
+  app.disableHardwareAcceleration();
+}
+
 let mainWindow    = null;
 let projectPath   = null;
 let previewWindow = null;
