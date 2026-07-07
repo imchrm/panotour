@@ -131,3 +131,9 @@
   color: var(--danger);
   background: rgba(224, 82, 82, 0.1);
 }
+
+.error {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #e57373;
+}

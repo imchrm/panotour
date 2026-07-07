@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useTour, DEFAULT_FOV } from '../../store/tourStore';
-import { isElectron, getElectronApi, readSceneObjectUrl } from '../../lib/electronApi';
+import { isElectron, getElectronApi, getProjectPath, readSceneObjectUrl } from '../../lib/electronApi';
 import styles from './PanoramaList.module.css';
 
 function newSceneId(): string {
@@ -11,6 +11,7 @@ export function PanoramaList() {
   const { state, dispatch } = useTour();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function addSceneToStore(id: string, title: string, panoramaObjectUrl?: string) {
     dispatch({
@@ -38,13 +39,21 @@ export function PanoramaList() {
   async function handleAddElectron() {
     const api = getElectronApi();
     if (!api || adding) return;
+    if (!getProjectPath()) {
+      setError('Create or open a project first');
+      return;
+    }
     setAdding(true);
+    setError(null);
     try {
       const id = newSceneId();
       const result = await api.addScene(id);
       if (result.canceled) return;
       const objectUrl = await readSceneObjectUrl(id);
       addSceneToStore(id, id, objectUrl);
+    } catch (err: unknown) {
+      const message = (err as Error)?.message ?? 'Failed to add scene';
+      setError(message.replace(/^Error invoking remote method '[^']+': Error: /, ''));
     } finally {
       setAdding(false);
     }
@@ -89,9 +98,14 @@ export function PanoramaList() {
         className={styles.hiddenInput}
         onChange={handleInputChange}
       />
+      {error && <div className={styles.error}>{error}</div>}
       <ul className={styles.list}>
         {scenes.length === 0 && (
-          <li className={styles.empty}>No scenes. Add a panorama to start.</li>
+          <li className={styles.empty}>
+            {isElectron() && !getProjectPath()
+              ? 'Create or open a project to start.'
+              : 'No scenes. Add a panorama to start.'}
+          </li>
         )}
         {scenes.map((scene) => {
           const isDefault = state.tour.defaultSceneId === scene.id;
