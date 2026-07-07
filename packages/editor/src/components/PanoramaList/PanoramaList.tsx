@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTour, DEFAULT_FOV } from '../../store/tourStore';
 import { isElectron, getElectronApi, getProjectPath, readSceneObjectUrl } from '../../lib/electronApi';
 import { panoramaPreviewUrl } from '../../lib/panoramaPreview';
@@ -8,11 +8,139 @@ function newSceneId(): string {
   return `scene-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+interface BatchState {
+  current: number;
+  total: number;
+  sceneId: string;
+  detail: string;
+  detailFull: string;
+  fraction: number;
+}
+
+function parseTileProgress(chunk: string): { detail: string; full: string; frac: number } | null {
+  const text = chunk.split('\r').filter((s) => s.trim()).pop() ?? '';
+  const lvl = text.match(/Level (\d+)\/(\d+), face (\d+)\/(\d+)/);
+  if (lvl) {
+    const [li, lt, f, ft] = [+lvl[1], +lvl[2], +lvl[3], +lvl[4]];
+    const levelFrac = (li - 1 + f / ft) / lt;
+    const mobile = text.includes('[mobile]');
+    return {
+      detail: `${li}/${lt} · ${f}/${ft}`,
+      full: `Level ${li}/${lt} · face ${f}/${ft}${mobile ? ' (mobile)' : ''}`,
+      frac: mobile ? 0.85 + 0.13 * levelFrac : 0.5 + 0.35 * levelFrac,
+    };
+  }
+  const proj = text.match(/Projecting face (\d+)\/(\d+)/);
+  if (proj) {
+    return {
+      detail: `proj ${proj[1]}/${proj[2]}`,
+      full: `Projecting face ${proj[1]}/${proj[2]}`,
+      frac: 0.5 * (+proj[1] / +proj[2]),
+    };
+  }
+  if (text.includes('preview')) {
+    return { detail: 'preview', full: 'Writing preview.jpg', frac: 0.98 };
+  }
+  return null;
+}
+
 export function PanoramaList() {
   const { state, dispatch } = useTour();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [batch, setBatch] = useState<BatchState | null>(null);
+  const [sceneStatus, setSceneStatus] = useState<Record<string, 'tiling' | 'error'>>({});
+
+  const { scenes } = state.tour;
+  const selectedIds = scenes.filter((s) => selected[s.id]).map((s) => s.id);
+  const allSelected = scenes.length > 0 && selectedIds.length === scenes.length;
+
+  useEffect(() => {
+    setSelected((prev) => {
+      const next: Record<string, boolean> = {};
+      for (const s of scenes) next[s.id] = prev[s.id] ?? s.levels.length === 0;
+      return next;
+    });
+  }, [scenes]);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = selectedIds.length > 0 && !allSelected;
+    }
+  }, [selectedIds.length, allSelected]);
+
+  async function handleTileSelected() {
+    const api = getElectronApi();
+    if (!api || batch) return;
+    if (!getProjectPath()) {
+      setError('Create or open a project first');
+      return;
+    }
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setError(null);
+    const failures: string[] = [];
+    for (let i = 0; i < ids.length; i++) {
+      const sceneId = ids[i];
+      setSceneStatus((m) => ({ ...m, [sceneId]: 'tiling' }));
+      setBatch({
+        current: i + 1,
+        total: ids.length,
+        sceneId,
+        detail: '',
+        detailFull: 'Starting',
+        fraction: i / ids.length,
+      });
+      try {
+        const result = await api.tileScene(sceneId, (chunk) => {
+          const p = parseTileProgress(chunk);
+          if (!p) return;
+          setBatch({
+            current: i + 1,
+            total: ids.length,
+            sceneId,
+            detail: p.detail,
+            detailFull: p.full,
+            fraction: (i + p.frac) / ids.length,
+          });
+        });
+        dispatch({
+          type: 'UPDATE_SCENE',
+          id: sceneId,
+          patch: {
+            tilesPath: result.tilesPath,
+            previewUrl: result.previewUrl,
+            levels: result.levels,
+          },
+        });
+        setSceneStatus((m) => {
+          const next = { ...m };
+          delete next[sceneId];
+          return next;
+        });
+        setSelected((m) => ({ ...m, [sceneId]: false }));
+      } catch {
+        setSceneStatus((m) => ({ ...m, [sceneId]: 'error' }));
+        failures.push(sceneId);
+      }
+    }
+    setBatch(null);
+    if (failures.length > 0) {
+      setError(`Tiling failed: ${failures.join(', ')}`);
+    }
+  }
+
+  function toggleAll() {
+    const value = !allSelected;
+    setSelected((prev) => {
+      const next = { ...prev };
+      for (const s of scenes) next[s.id] = value;
+      return next;
+    });
+  }
 
   function addSceneToStore(id: string, title: string, panoramaObjectUrl?: string) {
     dispatch({
@@ -81,8 +209,6 @@ export function PanoramaList() {
     dispatch({ type: 'DELETE_SCENE', id });
   }
 
-  const { scenes } = state.tour;
-
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
@@ -99,6 +225,44 @@ export function PanoramaList() {
         className={styles.hiddenInput}
         onChange={handleInputChange}
       />
+      {isElectron() && scenes.length > 0 && (
+        <div className={styles.tileControls}>
+          <button
+            className={styles.tileAllBtn}
+            onClick={handleTileSelected}
+            disabled={!!batch || selectedIds.length === 0}
+          >
+            {batch ? 'Tiling…' : `Tile selected (${selectedIds.length})`}
+          </button>
+          {batch && (
+            <div
+              className={styles.progressWrap}
+              title={`Scene ${batch.current}/${batch.total} · ${batch.detailFull}`}
+            >
+              <div className={styles.progressBar}>
+                <div
+                  className={styles.progressFill}
+                  style={{ width: `${Math.round(batch.fraction * 100)}%` }}
+                />
+              </div>
+              <div className={styles.progressText}>
+                {batch.current}/{batch.total}
+                {batch.detail ? ` · ${batch.detail}` : ''}
+              </div>
+            </div>
+          )}
+          <label className={styles.selectAllRow}>
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              disabled={!!batch}
+            />
+            Select all
+          </label>
+        </div>
+      )}
       {error && <div className={styles.error}>{error}</div>}
       <ul className={styles.list}>
         {scenes.length === 0 && (
@@ -110,12 +274,38 @@ export function PanoramaList() {
         )}
         {scenes.map((scene) => {
           const isDefault = state.tour.defaultSceneId === scene.id;
+          const status = sceneStatus[scene.id];
+          const tiled = scene.levels.length > 0;
           return (
             <li
               key={scene.id}
               className={`${styles.item} ${state.activeSceneId === scene.id ? styles.active : ''}`}
               onClick={() => dispatch({ type: 'SET_ACTIVE_SCENE', id: scene.id })}
             >
+              {isElectron() && (
+                <input
+                  type="checkbox"
+                  className={styles.itemCheck}
+                  checked={selected[scene.id] ?? false}
+                  disabled={!!batch}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() =>
+                    setSelected((m) => ({ ...m, [scene.id]: !m[scene.id] }))
+                  }
+                />
+              )}
+              {status === 'tiling' ? (
+                <span className={styles.spinner} title="Tiling…" />
+              ) : status === 'error' ? (
+                <span className={`${styles.dot} ${styles.dotError}`} title="Tiling failed" />
+              ) : tiled ? (
+                <span className={styles.tiledMark} title={`Tiled: ${scene.levels.length} levels`}>
+                  <span className={`${styles.dot} ${styles.dotTiled}`} />
+                  <span className={styles.levelsBadge}>{scene.levels.length}L</span>
+                </span>
+              ) : (
+                <span className={styles.dot} title="Not tiled" />
+              )}
               <button
                 className={`${styles.starBtn} ${isDefault ? styles.starActive : ''}`}
                 onClick={(e) => {

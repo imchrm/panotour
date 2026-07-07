@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronApi', {
   createProject: (opts) => ipcRenderer.invoke('project:create', opts),
   openProject:   (opts) => ipcRenderer.invoke('project:open', opts),
   saveProject:   (data) => ipcRenderer.invoke('project:save', data),
+  currentProject: ()    => ipcRenderer.invoke('project:current'),
   addScene:      (sceneId, srcPath) => ipcRenderer.invoke('scene:add', sceneId, srcPath),
   deleteScene:   (sceneId)          => ipcRenderer.invoke('scene:delete', sceneId),
   readScene:     (sceneId)          => ipcRenderer.invoke('scene:read', sceneId),

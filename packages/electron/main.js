@@ -120,6 +120,11 @@ function registerIpcHandlers() {
     return { canceled: false, projectPath: dir, project: data };
   });
 
+  ipcMain.handle('project:current', async () => {
+    if (!projectPath) return null;
+    return { projectPath, project: openProject(projectPath) };
+  });
+
   ipcMain.handle('project:save', async (_event, data) => {
     requireOpenProject();
     saveProject(projectPath, data);
