@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { TourProvider, useTour } from './store/tourStore';
 import { PanoramaList } from './components/PanoramaList/PanoramaList';
 import { PanoramaCanvas } from './components/PanoramaCanvas/PanoramaCanvas';
+import { CanvasErrorBoundary } from './components/PanoramaCanvas/CanvasErrorBoundary';
 import { SceneSettings } from './components/SceneSettings/SceneSettings';
 import { HotspotPanel } from './components/HotspotPanel/HotspotPanel';
 import { ExportButton } from './components/ExportButton/ExportButton';
@@ -33,7 +34,9 @@ function EditorApp() {
           <PanoramaList />
         </div>
         <div className="canvas-area">
-          <PanoramaCanvas />
+          <CanvasErrorBoundary>
+            <PanoramaCanvas />
+          </CanvasErrorBoundary>
         </div>
         <div className="right-panel">
           <SceneSettings />

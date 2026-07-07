@@ -16,28 +16,50 @@ export function PanoramaCanvas() {
 
   const activeScene = state.tour.scenes.find((s) => s.id === state.activeSceneId);
 
+  const [glEpoch, setGlEpoch] = useState(0);
+
   useEffect(() => {
     if (!containerRef.current) return;
     const viewer = new Marzipano.Viewer(containerRef.current, {
       controls: { mouseViewMode: 'drag' },
     });
     viewerRef.current = viewer;
+
+    const canvas = containerRef.current.querySelector('canvas');
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      setGlEpoch((n) => n + 1);
+    };
+    canvas?.addEventListener('webglcontextlost', onContextLost);
+
     return () => {
-      viewer.destroy();
+      canvas?.removeEventListener('webglcontextlost', onContextLost);
+      try { viewer.destroy(); } catch { /* context may already be lost */ }
       viewerRef.current = null;
       sceneRef.current = null;
       viewRef.current = null;
+      hotspotHandlesRef.current = [];
     };
-  }, []);
+  }, [glEpoch]);
 
-  // Create Marzipano scene when panorama URL changes
+  // Create Marzipano scene when panorama URL changes; destroy the previous
+  // scene or its GPU textures accumulate until the context dies
   useEffect(() => {
-    if (!viewerRef.current || !activeScene?.panoramaObjectUrl) {
+    function destroyCurrentScene() {
+      if (sceneRef.current && viewerRef.current) {
+        try { viewerRef.current.destroyScene(sceneRef.current); } catch { /* context may already be lost */ }
+      }
       sceneRef.current = null;
       viewRef.current = null;
+      hotspotHandlesRef.current = [];
+    }
+
+    if (!viewerRef.current || !activeScene?.panoramaObjectUrl) {
+      destroyCurrentScene();
       setViewInfo(null);
       return;
     }
+    destroyCurrentScene();
     const { yaw, pitch, fov } = activeScene.initialView;
     const geometry = new Marzipano.EquirectGeometry([{ width: 4000 }]);
     const source = Marzipano.ImageUrlSource.fromString(activeScene.panoramaObjectUrl);
@@ -57,7 +79,7 @@ export function PanoramaCanvas() {
     }
     animId = requestAnimationFrame(pollView);
     return () => cancelAnimationFrame(animId);
-  }, [activeScene?.panoramaObjectUrl]);
+  }, [activeScene?.panoramaObjectUrl, glEpoch]);
 
   // Sync hotspot markers to the Marzipano scene
   useEffect(() => {
@@ -87,7 +109,7 @@ export function PanoramaCanvas() {
       const handle = container.createHotspot(el, { yaw: hotspot.yaw, pitch: hotspot.pitch });
       hotspotHandlesRef.current.push(handle);
     });
-  }, [activeScene, state.activeHotspotId]);
+  }, [activeScene, state.activeHotspotId, glEpoch]);
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!state.placingHotspot || !viewRef.current || !containerRef.current) return;
