@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTour } from '../../store/tourStore';
 import type { TourData } from '../../store/types';
 import { exportTour } from '../../lib/exporter';
@@ -12,6 +12,12 @@ export function ExportButton() {
   const [error, setError] = useState<string | null>(null);
 
   const disabled = state.tour.scenes.length === 0;
+
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [error]);
 
   function tiledTour(): TourData | null {
     const full = exportTour(state.tour);
