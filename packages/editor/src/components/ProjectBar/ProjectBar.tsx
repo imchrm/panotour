@@ -11,11 +11,13 @@ import {
   readSceneObjectUrl,
   type ProjectData,
 } from '../../lib/electronApi';
+import { LoadingOverlay, type LoadingProgress } from '../LoadingOverlay/LoadingOverlay';
 import styles from './ProjectBar.module.css';
 
 export function ProjectBar() {
   const { state, dispatch } = useTour();
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<LoadingProgress | null>(null);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -56,15 +58,23 @@ export function ProjectBar() {
 
   async function loadIntoStore(project: ProjectData) {
     const scenes = projectToEditorScenes(project);
-    for (const scene of scenes) {
-      scene.panoramaObjectUrl = await readSceneObjectUrl(scene.id);
+    const title = `Loading project: ${project.name}`;
+    try {
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        setProgress({ title, current: i, total: scenes.length, detail: scene.title });
+        scene.panoramaObjectUrl = await readSceneObjectUrl(scene.id);
+      }
+      setProgress({ title, current: scenes.length, total: scenes.length });
+      dispatch({
+        type: 'LOAD_TOUR',
+        defaultSceneId: project.defaultSceneId ?? '',
+        scenes,
+      });
+      setProjectName(project.name);
+    } finally {
+      setProgress(null);
     }
-    dispatch({
-      type: 'LOAD_TOUR',
-      defaultSceneId: project.defaultSceneId ?? '',
-      scenes,
-    });
-    setProjectName(project.name);
   }
 
   async function run(label: string, action: () => Promise<void>) {
@@ -121,6 +131,7 @@ export function ProjectBar() {
       {message && (
         <span className={message.ok ? styles.ok : styles.error}>{message.text}</span>
       )}
+      <LoadingOverlay progress={progress} />
     </div>
   );
 }
