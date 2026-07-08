@@ -139,8 +139,9 @@ export function PanoramaCanvas() {
           pitch: coords.pitch,
           targetSceneId: '',
           targetYaw: arrivalYaw,
-          targetPitch: coords.pitch,
+          targetPitch: 0,
           targetFov: Math.PI / 2,
+          arrivalSet: false,
         },
       });
     } else {

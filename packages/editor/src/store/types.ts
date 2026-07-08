@@ -26,6 +26,7 @@ export interface NavHotspot {
   targetYaw: number;
   targetPitch: number;
   targetFov: number;
+  arrivalSet?: boolean;
 }
 
 export interface InfoHotspot {

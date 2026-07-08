@@ -20,7 +20,7 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
   function applyCapture() {
     if (!state.capturedView) return;
     const { yaw, pitch, fov } = state.capturedView;
-    update({ targetYaw: yaw, targetPitch: pitch, targetFov: fov });
+    update({ targetYaw: yaw, targetPitch: pitch, targetFov: fov, arrivalSet: true });
   }
 
   const otherScenes = state.tour.scenes.filter((s) => s.id !== sceneId);
@@ -44,6 +44,11 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
       </div>
 
       <div className={styles.sectionTitle}>Arrival direction</div>
+      {!hotspot.arrivalSet && (
+        <div className={formStyles.warn}>
+          Direction not set — arrival view is a guess. Use Capture view or edit fields below.
+        </div>
+      )}
       {cv ? (
         <div className={formStyles.captureRow}>
           <span className={formStyles.captureHint}>
@@ -69,7 +74,7 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
           key={`ty-${hotspot.id}-${hotspot.targetYaw}`}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
-            if (!isNaN(v)) update({ targetYaw: v * RAD });
+            if (!isNaN(v)) update({ targetYaw: v * RAD, arrivalSet: true });
           }}
         />
       </div>
@@ -83,7 +88,7 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
           key={`tp-${hotspot.id}-${hotspot.targetPitch}`}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
-            if (!isNaN(v)) update({ targetPitch: v * RAD });
+            if (!isNaN(v)) update({ targetPitch: v * RAD, arrivalSet: true });
           }}
         />
       </div>
@@ -97,7 +102,7 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
           key={`tf-${hotspot.id}-${hotspot.targetFov}`}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
-            if (!isNaN(v)) update({ targetFov: v * RAD });
+            if (!isNaN(v)) update({ targetFov: v * RAD, arrivalSet: true });
           }}
         />
       </div>
