@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  position: relative;
 }
 
 .group {
@@ -11,11 +11,17 @@
 }
 
 .error {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
   font-size: 11px;
   color: var(--danger, #e05252);
   max-width: 320px;
   text-align: right;
   line-height: 1.4;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .btn {
