@@ -1,3 +1,10 @@
+.warn {
+  font-size: 11px;
+  color: #e0a852;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
 .captureRow {
   display: flex;
   align-items: center;

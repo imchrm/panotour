@@ -55,6 +55,11 @@ export function HotspotPanel() {
           >
             <span className={styles.typeIcon}>{hotspot.type === 'link' ? '→' : 'ℹ'}</span>
             <span className={styles.itemId}>{hotspot.id}</span>
+            {hotspot.type === 'link' && !(hotspot as NavHotspot).arrivalSet && (
+              <span className={styles.warnIcon} title="Arrival direction not set">
+                ⚠
+              </span>
+            )}
             <button
               className={styles.deleteBtn}
               onClick={(e) => {

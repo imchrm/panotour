@@ -122,6 +122,13 @@
   color: var(--accent);
 }
 
+.warnIcon {
+  flex-shrink: 0;
+  color: #e0a852;
+  font-size: 12px;
+  cursor: help;
+}
+
 .deleteBtn {
   background: none;
   border: none;
