@@ -18,6 +18,8 @@ interface EditorState {
   placingHotspot: false | 'link' | 'info';
   capturedView: CapturedView | null;
   flipArrivalYaw: boolean;
+  sceneHistory: string[];
+  historyIndex: number;
 }
 
 type Action =
@@ -34,7 +36,9 @@ type Action =
   | { type: 'START_PLACING_HOTSPOT'; hotspotType: 'link' | 'info' }
   | { type: 'CANCEL_PLACING_HOTSPOT' }
   | { type: 'CAPTURE_VIEW'; view: CapturedView }
-  | { type: 'TOGGLE_FLIP_ARRIVAL_YAW' };
+  | { type: 'TOGGLE_FLIP_ARRIVAL_YAW' }
+  | { type: 'HISTORY_BACK' }
+  | { type: 'HISTORY_FORWARD' };
 
 const initialState: EditorState = {
   tour: { version: '1.0', defaultSceneId: '', scenes: [] },
@@ -43,16 +47,30 @@ const initialState: EditorState = {
   placingHotspot: false,
   capturedView: null,
   flipArrivalYaw: true,
+  sceneHistory: [],
+  historyIndex: -1,
 };
+
+function pushHistory(
+  state: Pick<EditorState, 'sceneHistory' | 'historyIndex'>,
+  id: string,
+): Pick<EditorState, 'sceneHistory' | 'historyIndex'> {
+  if (state.sceneHistory[state.historyIndex] === id) return state;
+  const sceneHistory = [...state.sceneHistory.slice(0, state.historyIndex + 1), id];
+  return { sceneHistory, historyIndex: sceneHistory.length - 1 };
+}
 
 function reducer(state: EditorState, action: Action): EditorState {
   switch (action.type) {
     case 'LOAD_TOUR': {
       const defaultSceneId = action.defaultSceneId || action.scenes[0]?.id || '';
+      const first = action.scenes[0]?.id ?? null;
       return {
         ...initialState,
         tour: { version: state.tour.version, defaultSceneId, scenes: action.scenes },
-        activeSceneId: action.scenes[0]?.id ?? null,
+        activeSceneId: first,
+        sceneHistory: first ? [first] : [],
+        historyIndex: first ? 0 : -1,
       };
     }
     case 'ADD_SCENE': {
@@ -61,6 +79,7 @@ function reducer(state: EditorState, action: Action): EditorState {
       const activeSceneId = state.activeSceneId ?? action.scene.id;
       return {
         ...state,
+        ...pushHistory(state, activeSceneId),
         tour: { ...state.tour, scenes, defaultSceneId },
         activeSceneId,
       };
@@ -81,8 +100,20 @@ function reducer(state: EditorState, action: Action): EditorState {
       if (activeSceneId === action.id) {
         activeSceneId = scenes[0]?.id ?? null;
       }
+      const sceneHistory: string[] = [];
+      let historyIndex = -1;
+      state.sceneHistory.forEach((id, i) => {
+        if (id === action.id || sceneHistory[sceneHistory.length - 1] === id) return;
+        sceneHistory.push(id);
+        if (i <= state.historyIndex) historyIndex = sceneHistory.length - 1;
+      });
+      let history = { sceneHistory, historyIndex };
+      if (activeSceneId && sceneHistory[historyIndex] !== activeSceneId) {
+        history = pushHistory(history, activeSceneId);
+      }
       return {
         ...state,
+        ...history,
         tour: { ...state.tour, scenes, defaultSceneId },
         activeSceneId,
         activeHotspotId: null,
@@ -90,8 +121,33 @@ function reducer(state: EditorState, action: Action): EditorState {
     }
     case 'SET_DEFAULT_SCENE':
       return { ...state, tour: { ...state.tour, defaultSceneId: action.id } };
-    case 'SET_ACTIVE_SCENE':
-      return { ...state, activeSceneId: action.id, activeHotspotId: null, placingHotspot: false };
+    case 'SET_ACTIVE_SCENE': {
+      const base: EditorState = { ...state, activeSceneId: action.id, activeHotspotId: null, placingHotspot: false };
+      if (action.id === null) return base;
+      return { ...base, ...pushHistory(state, action.id) };
+    }
+    case 'HISTORY_BACK': {
+      if (state.historyIndex <= 0) return state;
+      const historyIndex = state.historyIndex - 1;
+      return {
+        ...state,
+        historyIndex,
+        activeSceneId: state.sceneHistory[historyIndex],
+        activeHotspotId: null,
+        placingHotspot: false,
+      };
+    }
+    case 'HISTORY_FORWARD': {
+      if (state.historyIndex >= state.sceneHistory.length - 1) return state;
+      const historyIndex = state.historyIndex + 1;
+      return {
+        ...state,
+        historyIndex,
+        activeSceneId: state.sceneHistory[historyIndex],
+        activeHotspotId: null,
+        placingHotspot: false,
+      };
+    }
     case 'ADD_HOTSPOT': {
       const scenes = state.tour.scenes.map((s) =>
         s.id === action.sceneId

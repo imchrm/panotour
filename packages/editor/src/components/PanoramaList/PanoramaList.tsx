@@ -217,6 +217,24 @@ export function PanoramaList() {
           + Add
         </button>
       </div>
+      <div className={styles.historyRow}>
+        <button
+          className={styles.historyBtn}
+          onClick={() => dispatch({ type: 'HISTORY_BACK' })}
+          disabled={state.historyIndex <= 0}
+          title="Previous scene"
+        >
+          &#8592;
+        </button>
+        <button
+          className={styles.historyBtn}
+          onClick={() => dispatch({ type: 'HISTORY_FORWARD' })}
+          disabled={state.historyIndex >= state.sceneHistory.length - 1}
+          title="Next scene"
+        >
+          &#8594;
+        </button>
+      </div>
       <input
         ref={fileInputRef}
         type="file"
