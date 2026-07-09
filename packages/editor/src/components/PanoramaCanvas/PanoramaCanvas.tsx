@@ -12,6 +12,8 @@ export function PanoramaCanvas() {
   const sceneRef = useRef<any>(null);
   const viewRef = useRef<any>(null);
   const hotspotHandlesRef = useRef<any[]>([]);
+  const savedViewsRef = useRef(new Map<string, { yaw: number; pitch: number; fov: number }>());
+  const shownSceneIdRef = useRef<string | null>(null);
   const [viewInfo, setViewInfo] = useState<{ yaw: number; pitch: number; fov: number } | null>(null);
 
   const activeScene = state.tour.scenes.find((s) => s.id === state.activeSceneId);
@@ -45,12 +47,22 @@ export function PanoramaCanvas() {
   // Create Marzipano scene when panorama URL changes; destroy the previous
   // scene or its GPU textures accumulate until the context dies
   useEffect(() => {
+    function saveCurrentView() {
+      if (!viewRef.current || !shownSceneIdRef.current) return;
+      try {
+        const { yaw, pitch, fov } = viewRef.current.parameters();
+        savedViewsRef.current.set(shownSceneIdRef.current, { yaw, pitch, fov });
+      } catch { /* context may already be lost */ }
+    }
+
     function destroyCurrentScene() {
+      saveCurrentView();
       if (sceneRef.current && viewerRef.current) {
         try { viewerRef.current.destroyScene(sceneRef.current); } catch { /* context may already be lost */ }
       }
       sceneRef.current = null;
       viewRef.current = null;
+      shownSceneIdRef.current = null;
       hotspotHandlesRef.current = [];
     }
 
@@ -60,7 +72,8 @@ export function PanoramaCanvas() {
       return;
     }
     destroyCurrentScene();
-    const { yaw, pitch, fov } = activeScene.initialView;
+    const { yaw, pitch, fov } =
+      savedViewsRef.current.get(activeScene.id) ?? activeScene.initialView;
     const geometry = new Marzipano.EquirectGeometry([{ width: 4000 }]);
     const source = Marzipano.ImageUrlSource.fromString(activeScene.panoramaObjectUrl);
     const limiter = Marzipano.RectilinearView.limit.traditional(4096, 120 * Math.PI / 180);
@@ -69,6 +82,7 @@ export function PanoramaCanvas() {
     scene.switchTo();
     sceneRef.current = scene;
     viewRef.current = view;
+    shownSceneIdRef.current = activeScene.id;
 
     // Poll current view for display and capture
     let animId: number;
