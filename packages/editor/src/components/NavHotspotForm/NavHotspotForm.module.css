@@ -1,3 +1,24 @@
+.targetRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.targetRow select {
+  flex: 1;
+  min-width: 0;
+}
+
+.applyBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.applyBtn:disabled:hover {
+  background: transparent;
+  color: var(--accent);
+}
+
 .warn {
   font-size: 11px;
   color: #e0a852;

@@ -305,6 +305,56 @@
 
 ---
 
+## [2026-07-08] — Electron-редактор: реализация (шаги 1–6 плана)
+
+**Пакет:** electron, editor, root
+
+**Что сделано:**
+- Создан `packages/electron/`: main.js (BrowserWindow, checkNodeJs → диалог,
+  IPC-обработчики), preload.js (contextBridge → `window.electronApi`)
+- IPC: `project:create/open/save/current`, `scene:add/read/delete`,
+  `tile:run/runAll` (spawn tiler, прогресс из stdout, sourceHash + tiledAt),
+  `preview:open` (второй BrowserWindow, протокол `ptour://`),
+  `export:folder`, `export:zip` (archiver)
+- Формат проекта на диске: `project.json` + `scenes/` + `tiles/` + `media/`
+- Renderer мигрирован: `serverApi.ts` удалён → `electronApi.ts` (typed wrapper),
+  ProjectBar (New/Open/Save, автосейв с дебаунсом 2 с, восстановление проекта)
+- Диагностика: файловый лог main-процесса, метрики процессов, авто-DevTools
+- Панель батч-тайлинга: чекбоксы, select all, очередь с прогрессом
+- `scripts/verify-project-ipc.js` (`npm run verify`) — headless-проверка
+  project IPC и Node.js-check без бинарника Electron
+- `electron-builder.yml` + `stage-tiler.js` — Windows portable (не проверено end-to-end)
+
+**Почему:** Замена Варианта B (browser editor + Express) единым desktop-приложением
+(ADR-011). `packages/server` переведён в legacy.
+
+---
+
+## [2026-07-08] — Редактор: сессия UI/UX доработок (U.1–U.5, U.11)
+
+**Пакет:** editor, electron, docs
+
+**Что сделано:**
+- Фикс направления прибытия nav-хотспотов: дефолт `targetPitch: 0` (горизонт),
+  флаг `arrivalSet` (true после Capture view / ручного ввода), предупреждения ⚠
+  в списке хотспотов и форме; служебные поля вырезаются из tour.json при экспорте
+- Модальный прогресс загрузки проекта (LoadingOverlay, блокирует UI)
+- U.1: история сцен Back/Forward (стек в store, кнопки ← → под SCENES)
+- U.4: память положения камеры per-scene в рамках сессии
+- U.2: ресайз левой панели (Pointer Events + capture, 160–480px, localStorage,
+  double-click — сброс); фикс аспекта canvas — ResizeObserver → `viewer.updateSize()`
+- U.3: tooltip с путём исходника (`originalPath` из `scene:add` → project.json)
+- U.11: drag-and-drop порядок сцен (MOVE_SCENE, handle 6 точек, индикатор вставки)
+- U.5: `docs/kiosk-map-linking.md` — рекомендации связки карты киоска со сценами
+- ExportButton: сообщение об ошибке не сдвигает кнопки (absolute), автоскрытие 5 с
+
+**Почему:** Ошибка «неправильное направление при переходе» — дефолтная формула
+`yaw+180°` переносила угол между панорамами с разными нулями азимута; правильное
+направление задаётся только по целевой сцене (Capture view). Остальное — очередь
+UI/UX задач из TODO (раздел U).
+
+---
+
 <!--
 Шаблон для будущих сессий:
 
