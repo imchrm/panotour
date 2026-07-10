@@ -285,3 +285,31 @@
   opacity: 0.3;
   cursor: default;
 }
+
+.dragHandle {
+  flex-shrink: 0;
+  width: 8px;
+  height: 14px;
+  cursor: grab;
+  background-image: radial-gradient(circle, var(--text-muted) 1.1px, transparent 1.1px);
+  background-size: 4px 5px;
+  background-position: 0 1px;
+  opacity: 0.55;
+  transition: opacity 0.12s;
+}
+
+.item:hover .dragHandle {
+  opacity: 1;
+}
+
+.dragging {
+  opacity: 0.4;
+}
+
+.dropBefore {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.dropAfter {
+  box-shadow: 0 2px 0 0 var(--accent);
+}

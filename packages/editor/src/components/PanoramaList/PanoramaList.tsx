@@ -53,6 +53,9 @@ export function PanoramaList() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [batch, setBatch] = useState<BatchState | null>(null);
   const [sceneStatus, setSceneStatus] = useState<Record<string, 'tiling' | 'error'>>({});
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragArmedId, setDragArmedId] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   const { scenes } = state.tour;
   const selectedIds = scenes.filter((s) => selected[s.id]).map((s) => s.id);
@@ -204,6 +207,21 @@ export function PanoramaList() {
     }
   }
 
+  function handleDrop() {
+    if (dragId !== null && dropIndex !== null) {
+      const from = scenes.findIndex((s) => s.id === dragId);
+      const toIndex = from >= 0 && from < dropIndex ? dropIndex - 1 : dropIndex;
+      dispatch({ type: 'MOVE_SCENE', id: dragId, toIndex });
+    }
+    resetDrag();
+  }
+
+  function resetDrag() {
+    setDragId(null);
+    setDragArmedId(null);
+    setDropIndex(null);
+  }
+
   function handleDelete(id: string, objectUrl?: string) {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     getElectronApi()?.deleteScene(id).catch(() => {});
@@ -291,16 +309,53 @@ export function PanoramaList() {
               : 'No scenes. Add a panorama to start.'}
           </li>
         )}
-        {scenes.map((scene) => {
+        {scenes.map((scene, index) => {
           const isDefault = state.tour.defaultSceneId === scene.id;
           const status = sceneStatus[scene.id];
           const tiled = scene.levels.length > 0;
+          const dropClass =
+            dropIndex === index
+              ? styles.dropBefore
+              : dropIndex === index + 1 && index === scenes.length - 1
+                ? styles.dropAfter
+                : '';
           return (
             <li
               key={scene.id}
-              className={`${styles.item} ${state.activeSceneId === scene.id ? styles.active : ''}`}
+              className={`${styles.item} ${state.activeSceneId === scene.id ? styles.active : ''} ${
+                dragId === scene.id ? styles.dragging : ''
+              } ${dropClass}`}
               onClick={() => dispatch({ type: 'SET_ACTIVE_SCENE', id: scene.id })}
+              draggable={dragArmedId === scene.id}
+              onDragStart={(e) => {
+                if (dragArmedId !== scene.id) {
+                  e.preventDefault();
+                  return;
+                }
+                e.dataTransfer.effectAllowed = 'move';
+                setDragId(scene.id);
+              }}
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const rect = e.currentTarget.getBoundingClientRect();
+                const before = e.clientY < rect.top + rect.height / 2;
+                setDropIndex(index + (before ? 0 : 1));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleDrop();
+              }}
+              onDragEnd={resetDrag}
             >
+              <span
+                className={styles.dragHandle}
+                title="Drag to reorder"
+                onPointerDown={() => setDragArmedId(scene.id)}
+                onPointerUp={() => { if (!dragId) setDragArmedId(null); }}
+                onClick={(e) => e.stopPropagation()}
+              />
               {isElectron() && (
                 <input
                   type="checkbox"

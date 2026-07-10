@@ -39,7 +39,8 @@ type Action =
   | { type: 'CAPTURE_VIEW'; view: CapturedView }
   | { type: 'TOGGLE_FLIP_ARRIVAL_YAW' }
   | { type: 'HISTORY_BACK' }
-  | { type: 'HISTORY_FORWARD' };
+  | { type: 'HISTORY_FORWARD' }
+  | { type: 'MOVE_SCENE'; id: string; toIndex: number };
 
 const initialState: EditorState = {
   tour: { version: '1.0', defaultSceneId: '', scenes: [] },
@@ -119,6 +120,15 @@ function reducer(state: EditorState, action: Action): EditorState {
         activeSceneId,
         activeHotspotId: null,
       };
+    }
+    case 'MOVE_SCENE': {
+      const from = state.tour.scenes.findIndex((s) => s.id === action.id);
+      if (from < 0) return state;
+      const scenes = [...state.tour.scenes];
+      const [moved] = scenes.splice(from, 1);
+      const to = Math.max(0, Math.min(action.toIndex, scenes.length));
+      scenes.splice(to, 0, moved);
+      return { ...state, tour: { ...state.tour, scenes } };
     }
     case 'SET_DEFAULT_SCENE':
       return { ...state, tour: { ...state.tour, defaultSceneId: action.id } };
