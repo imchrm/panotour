@@ -31,16 +31,26 @@ export function NavHotspotForm({ hotspot, sceneId }: Props) {
       <div className={styles.sectionTitle}>Nav Hotspot</div>
       <div className={styles.field}>
         <label className={styles.label}>Target scene</label>
-        <select
-          className={styles.input}
-          value={hotspot.targetSceneId}
-          onChange={(e) => update({ targetSceneId: e.target.value })}
-        >
-          <option value="">— select —</option>
-          {otherScenes.map((s) => (
-            <option key={s.id} value={s.id}>{s.title}</option>
-          ))}
-        </select>
+        <div className={formStyles.targetRow}>
+          <select
+            className={styles.input}
+            value={hotspot.targetSceneId}
+            onChange={(e) => update({ targetSceneId: e.target.value })}
+          >
+            <option value="">— select —</option>
+            {otherScenes.map((s) => (
+              <option key={s.id} value={s.id}>{s.title}</option>
+            ))}
+          </select>
+          <button
+            className={formStyles.applyBtn}
+            disabled={!hotspot.targetSceneId}
+            onClick={() => dispatch({ type: 'SET_ACTIVE_SCENE', id: hotspot.targetSceneId })}
+            title="Open target scene on canvas to capture arrival view"
+          >
+            Go &#8594;
+          </button>
+        </div>
       </div>
 
       <div className={styles.sectionTitle}>Arrival direction</div>
