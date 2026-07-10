@@ -34,7 +34,13 @@ export function PanoramaCanvas() {
     };
     canvas?.addEventListener('webglcontextlost', onContextLost);
 
+    const resizeObserver = new ResizeObserver(() => {
+      try { viewer.updateSize(); } catch { /* context may already be lost */ }
+    });
+    resizeObserver.observe(containerRef.current);
+
     return () => {
+      resizeObserver.disconnect();
       canvas?.removeEventListener('webglcontextlost', onContextLost);
       try { viewer.destroy(); } catch { /* context may already be lost */ }
       viewerRef.current = null;
