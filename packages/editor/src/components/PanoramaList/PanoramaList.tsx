@@ -142,12 +142,13 @@ export function PanoramaList() {
     });
   }
 
-  function addSceneToStore(id: string, title: string, panoramaObjectUrl?: string) {
+  function addSceneToStore(id: string, title: string, panoramaObjectUrl?: string, originalPath?: string) {
     dispatch({
       type: 'ADD_SCENE',
       scene: {
         id,
         title,
+        originalPath,
         tilesPath: `tiles/${id}`,
         previewUrl: `tiles/${id}/preview.jpg`,
         levels: [],
@@ -161,7 +162,7 @@ export function PanoramaList() {
   function handleFiles(files: FileList) {
     Array.from(files).forEach(async (file) => {
       const id = newSceneId();
-      addSceneToStore(id, file.name.replace(/\.[^.]+$/, ''), await panoramaPreviewUrl(file));
+      addSceneToStore(id, file.name.replace(/\.[^.]+$/, ''), await panoramaPreviewUrl(file), file.name);
     });
   }
 
@@ -179,7 +180,7 @@ export function PanoramaList() {
       const result = await api.addScene(id);
       if (result.canceled) return;
       const objectUrl = await readSceneObjectUrl(id);
-      addSceneToStore(id, id, objectUrl);
+      addSceneToStore(id, id, objectUrl, result.originalPath);
     } catch (err: unknown) {
       const message = (err as Error)?.message ?? 'Failed to add scene';
       setError(message.replace(/^Error invoking remote method '[^']+': Error: /, ''));
@@ -334,7 +335,12 @@ export function PanoramaList() {
               >
                 {isDefault ? '★' : '☆'}
               </button>
-              <span className={styles.itemTitle}>{scene.title}</span>
+              <span
+                className={styles.itemTitle}
+                title={scene.originalPath ?? `scenes/${scene.id}.jpg`}
+              >
+                {scene.title}
+              </span>
               <button
                 className={styles.deleteBtn}
                 onClick={(e) => {

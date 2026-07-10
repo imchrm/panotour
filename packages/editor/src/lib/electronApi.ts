@@ -7,6 +7,7 @@ export interface ProjectScene {
   id: string;
   title?: string;
   sourceFile?: string;
+  originalPath?: string;
   sourceHash?: string;
   tiledAt?: string;
   tilesPath?: string;
@@ -49,7 +50,7 @@ export interface ElectronApi {
   openProject(opts?: { dirPath?: string }): Promise<ProjectResult>;
   saveProject(data: ProjectData): Promise<{ projectPath: string }>;
   currentProject(): Promise<{ projectPath: string; project: ProjectData } | null>;
-  addScene(sceneId: string, srcPath?: string): Promise<{ canceled: boolean; sceneId?: string; sourceFile?: string }>;
+  addScene(sceneId: string, srcPath?: string): Promise<{ canceled: boolean; sceneId?: string; sourceFile?: string; originalPath?: string }>;
   deleteScene(sceneId: string): Promise<{ scenes: string[] }>;
   readScene(sceneId: string): Promise<Uint8Array>;
   tileScene(sceneId: string, onProgress?: (progress: string) => void): Promise<TileResult>;
@@ -132,6 +133,7 @@ export function projectToEditorScenes(project: ProjectData): EditorScene[] {
   return project.scenes.map((s) => ({
     id: s.id,
     title: s.title ?? s.id,
+    originalPath: s.originalPath,
     tilesPath: s.tilesPath ?? `tiles/${s.id}`,
     previewUrl: s.previewUrl ?? `tiles/${s.id}/preview.jpg`,
     levels: s.levels ?? [],
@@ -152,6 +154,7 @@ export function mergeEditorStateIntoProject(
     return {
       ...persisted,
       title: s.title,
+      originalPath: s.originalPath ?? persisted.originalPath,
       tilesPath: s.tilesPath,
       previewUrl: s.previewUrl,
       levels: s.levels,
