@@ -6,10 +6,17 @@ import { downloadTourJson, downloadZip, exportToFolder, hasFolderExport } from '
 import { isElectron, getElectronApi } from '../../lib/electronApi';
 import styles from './ExportButton.module.css';
 
+interface ExportIssue {
+  sceneTitle: string;
+  hotspotId: string;
+  kind: 'arrival' | 'target';
+}
+
 export function ExportButton() {
   const { state } = useTour();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ kind: 'zip' | 'folder'; issues: ExportIssue[] } | null>(null);
 
   const disabled = state.tour.scenes.length === 0;
 
@@ -36,9 +43,42 @@ export function ExportButton() {
     return { ...full, defaultSceneId, scenes };
   }
 
+  function collectIssues(): ExportIssue[] {
+    const issues: ExportIssue[] = [];
+    for (const scene of state.tour.scenes) {
+      for (const h of scene.hotspots) {
+        if (h.type !== 'link') continue;
+        if (!h.targetSceneId || !state.tour.scenes.some((s) => s.id === h.targetSceneId)) {
+          issues.push({ sceneTitle: scene.title, hotspotId: h.id, kind: 'target' });
+        } else if (!h.arrivalSet) {
+          issues.push({ sceneTitle: scene.title, hotspotId: h.id, kind: 'arrival' });
+        }
+      }
+    }
+    return issues;
+  }
+
+  function requestExport(kind: 'zip' | 'folder') {
+    if (disabled || busy) return;
+    setError(null);
+    const issues = collectIssues();
+    if (issues.length > 0) {
+      setPending({ kind, issues });
+      return;
+    }
+    runExport(kind);
+  }
+
+  function runExport(kind: 'zip' | 'folder') {
+    setPending(null);
+    if (kind === 'zip') handleZip();
+    else handleFolder();
+  }
+
   const handleJson = () => {
     if (disabled) return;
     setError(null);
+    setPending(null);
     downloadTourJson(exportTour(state.tour));
   };
 
@@ -124,7 +164,7 @@ export function ExportButton() {
         </button>
         <button
           className={styles.btn}
-          onClick={handleZip}
+          onClick={() => requestExport('zip')}
           disabled={disabled || busy}
           title="Download ZIP archive"
         >
@@ -132,7 +172,7 @@ export function ExportButton() {
         </button>
         <button
           className={styles.btn}
-          onClick={handleFolder}
+          onClick={() => requestExport('folder')}
           disabled={disabled || busy}
           title={hasFolderExport() ? 'Export to folder' : 'Export to folder (ZIP fallback)'}
         >
@@ -140,6 +180,30 @@ export function ExportButton() {
         </button>
       </div>
       {error && <div className={styles.error}>{error}</div>}
+      {pending && (
+        <div className={styles.confirm}>
+          <div className={styles.confirmTitle}>
+            {pending.issues.length} nav hotspot(s) need attention:
+          </div>
+          <ul className={styles.confirmList}>
+            {pending.issues.slice(0, 6).map((issue) => (
+              <li key={issue.hotspotId}>
+                <b>{issue.sceneTitle}</b> — {issue.hotspotId.slice(0, 18)}…{' '}
+                {issue.kind === 'target' ? 'target scene missing' : 'arrival direction not set'}
+              </li>
+            ))}
+            {pending.issues.length > 6 && <li>…and {pending.issues.length - 6} more</li>}
+          </ul>
+          <div className={styles.confirmActions}>
+            <button className={styles.btn} onClick={() => runExport(pending.kind)}>
+              Export anyway
+            </button>
+            <button className={styles.btn} onClick={() => setPending(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
