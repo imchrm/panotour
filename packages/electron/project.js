@@ -54,7 +54,7 @@ function addSceneFile(projectDir, sceneId, srcPath) {
   fs.mkdirSync(scenesDir, { recursive: true });
   const destFile = path.join(scenesDir, `${sceneId}.jpg`);
   fs.copyFileSync(srcPath, destFile);
-  return { sceneId, sourceFile: `scenes/${sceneId}.jpg` };
+  return { sceneId, sourceFile: `scenes/${sceneId}.jpg`, originalPath: srcPath };
 }
 
 function deleteSceneFiles(projectDir, sceneId) {

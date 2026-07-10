@@ -3,6 +3,7 @@ import { type Scene, type Hotspot, DEFAULT_FOV } from './types';
 
 export interface EditorScene extends Scene {
   panoramaObjectUrl?: string;
+  originalPath?: string;
 }
 
 interface CapturedView {
