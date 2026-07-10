@@ -12,14 +12,15 @@
 **Концепция:** Собственный редактор хотспотов + tiler + viewer. Полный контроль
 над схемой данных тура. Независимость от Marzipano Tool.
 
-**Четыре пакета в одном репозитории (monorepo):**
+**Пакеты в одном репозитории (monorepo):**
 
 | Пакет | Путь | Назначение |
 |---|---|---|
-| `editor` | `packages/editor/` | React + Vite. Редактор тура: загрузка панорам, расстановка хотспотов, экспорт |
+| `electron` | `packages/electron/` | Electron main-процесс: проект на диске, тайлинг, предпросмотр, экспорт |
+| `editor` | `packages/editor/` | React + Vite. UI редактора — renderer Electron (работает и в браузере) |
 | `viewer` | `packages/viewer/` | Vanilla JS. Готовый тур: рендер панорам, переходы, InfoPanel |
 | `tiler` | `packages/tiler/` | Node.js CLI. Нарезка equirectangular → CubeGeometry тайлы |
-| `server` | `packages/server/` | Express. Локальный сервер тайлинга для editor (Вариант B) |
+| `server` | `packages/server/` | **Legacy.** Express-сервер тайлинга (Вариант B), заменён Electron IPC |
 
 ---
 
@@ -50,15 +51,22 @@
 | Нарезка | Собственная обратная проекция equirectangular→куб + `sharp` |
 | Интерфейс | CLI (`node tiler.js --input pano.jpg --output ./tiles/scene-01`) |
 
-### Server (`packages/server/`)
+### Electron (`packages/electron/`)
 | Слой | Технология |
 |---|---|
-| Runtime | Node.js 20+ (CommonJS) |
-| HTTP | Express 4 |
-| Загрузка файлов | multer (diskStorage, лимит 500 МБ) |
-| Тайлинг | Вызов `tileScene()` из `packages/tiler/lib/cubemapTiler.js` |
-| Статика | `/tiles/*` → `workspace/tiles/`, `/viewer/*` → `packages/viewer/` |
-| Запуск | `npm run server` / `npm run dev` (совместно с editor) |
+| Runtime | Electron 33 (main-процесс CommonJS) |
+| Renderer | `packages/editor` (dev: `http://localhost:5173`, prod: `loadFile`) |
+| IPC | `contextBridge` → `window.electronApi`; `ipcRenderer.invoke` / `ipcMain.handle` |
+| Файлы | Только в main-процессе (`project.js`, `preview.js`, `export.js`) |
+| Тайлинг | `child_process.spawn('node', [tiler.js, ...])` (`tiling.js`) |
+| Предпросмотр | Второй BrowserWindow, кастомный протокол `ptour://` |
+| Экспорт | Папка (копирование) или ZIP (`archiver`) в main-процессе |
+| Сборка | `electron-builder`, Windows portable, tiler в `extraFiles` |
+| Запуск | `npm run editor` + `npm run electron` |
+
+### Server (`packages/server/`) — legacy
+Express-сервер тайлинга (Вариант B: multer + `tileScene()`). Заменён Electron IPC,
+код сохранён для браузерного режима; новые фичи в него не добавляются.
 
 ---
 
@@ -80,16 +88,32 @@ panotour/
         store/
           tourStore.ts        # Context + useReducer: состояние тура
           types.ts            # TourData, Scene, Hotspot, InfoContent и др.
+          LoadingOverlay/     # Модальный прогресс загрузки проекта
+          ProjectBar/         # New/Open/Save проекта, автосейв, статус
         lib/
           exporter.ts         # Генерация tour.json из состояния store
-          zipper.ts           # Упаковка в ZIP через JSZip (+ тайлы с сервера)
-          serverApi.ts        # Транспортная абстракция для локального сервера
-        App.tsx
+          zipper.ts           # Упаковка в ZIP через JSZip (браузерный режим)
+          electronApi.ts      # Типизированная обёртка window.electronApi + project flows
+          panoramaPreview.ts  # Даунскейл панорамы до 4096px для canvas
+        App.tsx               # Layout + ресайз левой панели
         main.tsx
       index.html
       vite.config.ts
       tsconfig.json
       package.json
+
+    electron/
+      main.js                 # BrowserWindow, IPC-обработчики, checkNodeJs, лог
+      preload.js              # contextBridge: window.electronApi
+      project.js              # createProject/openProject/saveProject/сцены на диске
+      tiling.js               # resolveTilerPath, runTiler (spawn), runPool
+      preview.js              # tour.json во временную папку, протокол ptour://
+      export.js               # exportToFolder, exportToZip (archiver)
+      log.js                  # файловый лог + метрики процессов
+      scripts/
+        stage-tiler.js        # Копирование tiler в extraFiles при сборке
+        verify-project-ipc.js # Headless-проверка project IPC (npm run verify)
+      electron-builder.yml    # Windows portable
 
     viewer/
       index.html
@@ -428,12 +452,29 @@ EditorState {
   placingHotspot: false | 'link' | 'info'
   capturedView: { yaw, pitch, fov } | null  // захват камеры ("Capture view")
   flipArrivalYaw: boolean                    // авто-разворот targetYaw на 180° (по умолчанию true)
+  sceneHistory: string[]                     // история посещённых сцен (Back/Forward)
+  historyIndex: number
 }
 ```
-`EditorScene` extends `Scene` + `panoramaObjectUrl?: string` (Object URL загруженного файла).
-13 actions: ADD/UPDATE/DELETE_SCENE, SET_DEFAULT_SCENE, SET_ACTIVE_SCENE,
-ADD/UPDATE/DELETE_HOTSPOT, SET_ACTIVE_HOTSPOT, START/CANCEL_PLACING_HOTSPOT,
-CAPTURE_VIEW, TOGGLE_FLIP_ARRIVAL_YAW.
+`EditorScene` extends `Scene` + `panoramaObjectUrl?: string` (Object URL) +
+`originalPath?: string` (абсолютный путь исходного JPEG, tooltip в списке).
+`NavHotspot` + `arrivalSet?: boolean` — направление прибытия задано явно
+(Capture view / ручной ввод); `false` → предупреждение в UI. Служебные поля
+(`panoramaObjectUrl`, `originalPath`, `arrivalSet`) вырезаются из tour.json
+при экспорте, но сохраняются в project.json.
+
+17 actions: ADD/UPDATE/DELETE_SCENE, MOVE_SCENE (drag-and-drop порядок),
+SET_DEFAULT_SCENE, SET_ACTIVE_SCENE, LOAD_TOUR, ADD/UPDATE/DELETE_HOTSPOT,
+SET_ACTIVE_HOTSPOT, START/CANCEL_PLACING_HOTSPOT, CAPTURE_VIEW,
+TOGGLE_FLIP_ARRIVAL_YAW, HISTORY_BACK/FORWARD.
+
+**UI-возможности редактора (2026-07-08):**
+- История сцен Back/Forward (кнопки ← → под заголовком SCENES)
+- Запоминание положения камеры per-scene в рамках сессии (не пишется в project.json)
+- Ресайз левой панели (драг за кромку, 160–480px, localStorage, double-click — сброс)
+- Drag-and-drop порядок сцен за шеститочечный handle, порядок в project.json
+- Tooltip с путём исходника на сценах; модальный прогресс загрузки проекта
+- Marzipano canvas корректно пересчитывает размер через ResizeObserver
 
 **Поток добавления хотспота:**
 1. Нажать "+ Nav" / "+ Info" → `START_PLACING_HOTSPOT`
@@ -443,19 +484,21 @@ CAPTURE_VIEW, TOGGLE_FLIP_ARRIVAL_YAW.
 
 **Загрузка панорамы:** `<input type="file" multiple accept="image/*">` → `URL.createObjectURL(file)` → `ADD_SCENE`. Marzipano рендерит через `EquirectGeometry` без тайлинга.
 
-**Экспорт (`src/lib/`):**
-- `exporter.ts` — `exportTour()` снимает `panoramaObjectUrl` с EditorScene, возвращает чистый `TourData`
-- `zipper.ts` — `downloadTourJson()` (Blob), `downloadZip()` (JSZip + 10 viewer-файлов включая `i18n.js`), `downloadZipWithTiles()` (+ тайлы с сервера для каждой нарезанной сцены), `exportToFolder()` (File System Access API, fallback на ZIP для Firefox)
-- `serverApi.ts` — транспортная абстракция для локального сервера тайлинга:
-  - `SERVER_URL` — из `VITE_TILER_SERVER` env или `http://localhost:3333`
-  - `checkServer()` — `GET /api/health` с таймаутом 2 с
-  - `tileOnServer(panoramaObjectUrl, sceneId)` — `POST /api/tile` (FormData), возвращает `{ tilesPath, previewUrl, levels }`
-  - `fetchTileFiles(sceneId)` — `GET /api/tile/:id/files`, список путей тайлов для ZIP
+**Экспорт и IPC (`src/lib/`):**
+- `exporter.ts` — `exportTour()` вырезает служебные поля (`panoramaObjectUrl`,
+  `originalPath`, `arrivalSet`), возвращает чистый `TourData`
+- `zipper.ts` — браузерный режим: `downloadTourJson()`, `downloadZip()` (JSZip),
+  `exportToFolder()` (File System Access API, fallback на ZIP)
+- `electronApi.ts` — типизированная обёртка `window.electronApi` (заменила `serverApi.ts`):
+  project flows (create/open/restore/save + автосейв-merge), `readSceneObjectUrl()`,
+  `projectToEditorScenes()`, `mergeEditorStateIntoProject()`
+- В Electron экспорт/предпросмотр идут через IPC: `exportFolder`, `exportZip`, `openPreview`
 
-**SceneSettings — тайлинг через сервер:**
-- Кнопка "Tile on server ▶" — отправляет panorama на `POST /api/tile`, обновляет `tilesPath`, `previewUrl`, `levels` сцены
-- Индикатор статуса сервера (зелёный / красный / "Checking…") обновляется при монтировании компонента
-- При ошибке сервера кнопка отключается; статус `serverOk === false` показывает инструкцию `npm run server`
+**Тайлинг в Electron (PanoramaList):**
+- Чекбоксы у сцен + "Tile selected (N)" — последовательная очередь через `tile:run`
+- Прогресс парсится из stdout тайлера (уровни/грани, mobile-набор)
+- Статус на сцене: спиннер / зелёная точка с числом уровней / красная при ошибке
+- После успеха `tiledAt` + `sourceHash` пишутся в project.json (main-процесс)
 
 ---
 
@@ -522,7 +565,25 @@ zoom-in/out — используется для навигации из роди
 
 ## Текущий статус
 
-**Фаза:** MVP завершён, полный цикл готов к тестированию
+**Фаза:** Electron-редактор реализован (шаги 1–6 плана из
+`docs/electron-agent-briefing.md`), идёт итеративная доработка UI/UX
+(очередь U.1–U.11 в `docs/TODO.md`). Browser+Express вариант (B) — legacy.
+
+**Electron-редактор (2026-07-06…08):**
+- [x] Scaffold `packages/electron/`: main.js, preload.js (contextBridge), checkNodeJs
+- [x] IPC проекта: `project:create/open/save/current`; папка проекта на диске
+- [x] Сцены: `scene:add` (копия JPEG + originalPath), `scene:read`, `scene:delete`
+- [x] Тайлинг: `tile:run`/`tile:runAll` (spawn tiler, прогресс, sourceHash, tiledAt)
+- [x] Предпросмотр: `preview:open` — второй BrowserWindow, протокол `ptour://`
+- [x] Экспорт: `export:folder`, `export:zip` (archiver), `shell.openPath`
+- [x] Renderer мигрирован: `serverApi.ts` удалён → `electronApi.ts`; ProjectBar (автосейв)
+- [x] Диагностика: файловый лог + метрики процессов; headless verify (`npm run verify`)
+- [x] UI/UX: прогресс загрузки проекта, история сцен ←/→, память камеры per-scene,
+      ресайз панели, tooltip пути, drag-and-drop порядка сцен, фикс aspect canvas,
+      дефолт arrival pitch=0 + флаг `arrivalSet` с предупреждениями ⚠
+- [ ] Сборка portable .exe проверена end-to-end (`npm run build:exe`)
+
+**Браузерный MVP (история):**
 
 **Что сделано:**
 - [x] Инициализирован monorepo (root package.json + workspaces)
@@ -561,13 +622,11 @@ zoom-in/out — используется для навигации из роди
 - [ ] Протестирован полный цикл: pano → tiler → editor → export → viewer
 
 **Следующий шаг:**
-Протестировать полный цикл с Вариантом B (локальный сервер):
-1. `npm run dev` — запускает server (порт 3333) + editor (порт 5173)
-2. Загрузить панораму в editor → кнопка "Tile on server ▶" → проверить levels в tour.json
-3. Расставить nav/info хотспоты
-4. Экспорт: "Download ZIP with tiles" → проверить структуру ZIP
-5. Встроить viewer в киоск, проверить `?lang=uz`, `?scene=`, `TOUR_NAVIGATE`, `TOUR_EXIT`, `TOUR_ACTIVITY`
-6. Открыть тур с `?debug=1`, проверить лог `[panotour]` при загрузке, переходах и выходе
+1. Очередь UI/UX: U.6 (Go to target scene), U.7 (валидация arrival при экспорте),
+   U.8 (горячие клавиши), U.9 (память окна), U.10 (индикатор несохранённого)
+2. Медиафайлы info-хотспотов: IPC `media:copy` → `media/` (сейчас только URL)
+3. Сборка и проверка portable .exe (`npm run build:exe`, Windows x64)
+4. Интеграция с киоском по `docs/kiosk-map-linking.md`
 
 **Известное ограничение редактора:**
 `PanoramaCanvas` загружает полное equirectangular-изображение как одну текстуру
