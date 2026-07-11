@@ -23,4 +23,5 @@ contextBridge.exposeInMainWorld('electronApi', {
   openPreview:   (tourJson, opts) => ipcRenderer.invoke('preview:open', tourJson, opts),
   exportFolder:  (tourJson, opts) => ipcRenderer.invoke('export:folder', tourJson, opts),
   exportZip:     (tourJson, opts) => ipcRenderer.invoke('export:zip', tourJson, opts),
+  setDirty:      (dirty) => ipcRenderer.send('app:dirty', !!dirty),
 });

@@ -45,3 +45,19 @@
   margin-left: 5px;
   vertical-align: middle;
 }
+
+.autoSave {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.autoSave input[type='checkbox'] {
+  accent-color: var(--accent, #4f9cf9);
+  cursor: pointer;
+}

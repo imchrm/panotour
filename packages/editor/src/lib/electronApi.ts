@@ -58,6 +58,7 @@ export interface ElectronApi {
   openPreview(tourJson: TourData, opts?: { sceneId?: string }): Promise<{ previewDir: string }>;
   exportFolder(tourJson: TourData, opts?: { dirPath?: string }): Promise<{ canceled: boolean; exportPath?: string }>;
   exportZip(tourJson: TourData, opts?: { filePath?: string }): Promise<{ canceled: boolean; exportPath?: string }>;
+  setDirty(dirty: boolean): void;
 }
 
 declare global {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTour } from '../../store/tourStore';
 import {
   isElectron,
+  getElectronApi,
   createProjectFlow,
   openProjectFlow,
   restoreProjectFlow,
@@ -22,6 +23,9 @@ export function ProjectBar() {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [autoSave, setAutoSave] = useState(
+    () => localStorage.getItem('panotour.autoSave') === '1',
+  );
   const skipAutosaveRef = useRef(true);
 
   useEffect(() => {
@@ -45,6 +49,11 @@ export function ProjectBar() {
       return;
     }
     setDirty(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.tour]);
+
+  useEffect(() => {
+    if (!isElectron() || !getProjectPath() || !autoSave || !dirty) return;
     const timer = setTimeout(async () => {
       try {
         await saveProjectFlow(state.tour);
@@ -55,7 +64,15 @@ export function ProjectBar() {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [state.tour]);
+  }, [state.tour, autoSave, dirty]);
+
+  useEffect(() => {
+    localStorage.setItem('panotour.autoSave', autoSave ? '1' : '0');
+  }, [autoSave]);
+
+  useEffect(() => {
+    getElectronApi()?.setDirty(dirty);
+  }, [dirty]);
 
   useEffect(() => {
     if (!isElectron()) return;
@@ -143,6 +160,14 @@ export function ProjectBar() {
       <button className={styles.btn} onClick={handleSave} disabled={busy || !hasProject}>
         Save
       </button>
+      <label className={styles.autoSave} title="Save project automatically 2s after each change">
+        <input
+          type="checkbox"
+          checked={autoSave}
+          onChange={(e) => setAutoSave(e.target.checked)}
+        />
+        Auto Save
+      </label>
       {projectName && (
         <span className={styles.name}>
           {projectName}
