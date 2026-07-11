@@ -37,6 +37,7 @@ let mainWindow    = null;
 let projectPath   = null;
 let previewWindow = null;
 let previewDir    = null;
+let rendererDirty = false;
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -93,7 +94,21 @@ function createWindow() {
     },
   });
   if (state.maximized) mainWindow.maximize();
-  mainWindow.on('close', () => {
+  mainWindow.on('close', (event) => {
+    if (rendererDirty) {
+      const choice = dialog.showMessageBoxSync(mainWindow, {
+        type: 'warning',
+        title: 'Unsaved changes',
+        message: 'The project has unsaved changes.\n\nClose without saving?',
+        buttons: ['Cancel', 'Close anyway'],
+        defaultId: 0,
+        cancelId: 0,
+      });
+      if (choice === 0) {
+        event.preventDefault();
+        return;
+      }
+    }
     if (mainWindow) saveWindowState(windowStateFile(), mainWindow);
   });
   wireWindowLogging(mainWindow, 'editor');
@@ -132,6 +147,10 @@ function handle(channel, fn) {
 }
 
 function registerIpcHandlers() {
+  ipcMain.on('app:dirty', (_event, dirty) => {
+    rendererDirty = !!dirty;
+  });
+
   handle('project:create', async (_event, opts = {}) => {
     let dir = opts.dirPath;
     if (!dir) {

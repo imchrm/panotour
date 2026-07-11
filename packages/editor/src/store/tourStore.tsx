@@ -21,6 +21,7 @@ interface EditorState {
   flipArrivalYaw: boolean;
   sceneHistory: string[];
   historyIndex: number;
+  pendingDeleteHotspot: { sceneId: string; id: string } | null;
 }
 
 type Action =
@@ -40,7 +41,9 @@ type Action =
   | { type: 'TOGGLE_FLIP_ARRIVAL_YAW' }
   | { type: 'HISTORY_BACK' }
   | { type: 'HISTORY_FORWARD' }
-  | { type: 'MOVE_SCENE'; id: string; toIndex: number };
+  | { type: 'MOVE_SCENE'; id: string; toIndex: number }
+  | { type: 'REQUEST_DELETE_HOTSPOT'; sceneId: string; id: string }
+  | { type: 'CANCEL_DELETE_HOTSPOT' };
 
 const initialState: EditorState = {
   tour: { version: '1.0', defaultSceneId: '', scenes: [] },
@@ -51,6 +54,7 @@ const initialState: EditorState = {
   flipArrivalYaw: true,
   sceneHistory: [],
   historyIndex: -1,
+  pendingDeleteHotspot: null,
 };
 
 function pushHistory(
@@ -189,8 +193,17 @@ function reducer(state: EditorState, action: Action): EditorState {
       });
       const activeHotspotId =
         state.activeHotspotId === action.id ? null : state.activeHotspotId;
-      return { ...state, tour: { ...state.tour, scenes }, activeHotspotId };
+      return {
+        ...state,
+        tour: { ...state.tour, scenes },
+        activeHotspotId,
+        pendingDeleteHotspot: null,
+      };
     }
+    case 'REQUEST_DELETE_HOTSPOT':
+      return { ...state, pendingDeleteHotspot: { sceneId: action.sceneId, id: action.id } };
+    case 'CANCEL_DELETE_HOTSPOT':
+      return { ...state, pendingDeleteHotspot: null };
     case 'SET_ACTIVE_HOTSPOT':
       return { ...state, activeHotspotId: action.id };
     case 'START_PLACING_HOTSPOT':

@@ -64,7 +64,7 @@ export function HotspotPanel() {
               className={styles.deleteBtn}
               onClick={(e) => {
                 e.stopPropagation();
-                dispatch({ type: 'DELETE_HOTSPOT', sceneId: activeScene.id, id: hotspot.id });
+                dispatch({ type: 'REQUEST_DELETE_HOTSPOT', sceneId: activeScene.id, id: hotspot.id });
               }}
               title="Delete hotspot"
             >
@@ -78,6 +78,33 @@ export function HotspotPanel() {
       )}
       {activeHotspot && activeHotspot.type === 'info' && (
         <InfoHotspotForm hotspot={activeHotspot as InfoHotspot} sceneId={activeScene.id} />
+      )}
+      {state.pendingDeleteHotspot && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalBox}>
+            <div className={styles.modalText}>
+              Delete hotspot &quot;{state.pendingDeleteHotspot.id}&quot;?
+              <br />
+              This cannot be undone.
+            </div>
+            <div className={styles.modalActions}>
+              <button
+                className={styles.modalBtn}
+                onClick={() => dispatch({ type: 'CANCEL_DELETE_HOTSPOT' })}
+              >
+                Cancel
+              </button>
+              <button
+                className={`${styles.modalBtn} ${styles.modalBtnDanger}`}
+                onClick={() =>
+                  dispatch({ type: 'DELETE_HOTSPOT', ...state.pendingDeleteHotspot! })
+                }
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

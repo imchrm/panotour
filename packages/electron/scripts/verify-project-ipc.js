@@ -46,6 +46,7 @@ function makeStub(workDir, dialogCalls, handlers, state) {
     BrowserWindow: FakeBrowserWindow,
     ipcMain: {
       handle: (channel, fn) => handlers.set(channel, fn),
+      on: () => {},
     },
     dialog: {
       showMessageBoxSync: (opts) => { dialogCalls.push(opts); return 0; },
