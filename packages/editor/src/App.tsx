@@ -63,13 +63,18 @@ function EditorApp() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        dispatch({ type: 'CANCEL_PLACING_HOTSPOT' });
+        if (state.pendingDeleteHotspot) {
+          dispatch({ type: 'CANCEL_DELETE_HOTSPOT' });
+        } else {
+          dispatch({ type: 'CANCEL_PLACING_HOTSPOT' });
+        }
         return;
       }
       if (e.key === 'Delete' && !isTypingTarget(e.target)) {
+        if (state.pendingDeleteHotspot) return;
         if (state.activeSceneId && state.activeHotspotId) {
           dispatch({
-            type: 'DELETE_HOTSPOT',
+            type: 'REQUEST_DELETE_HOTSPOT',
             sceneId: state.activeSceneId,
             id: state.activeHotspotId,
           });
@@ -78,7 +83,7 @@ function EditorApp() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dispatch, state.activeSceneId, state.activeHotspotId]);
+  }, [dispatch, state.activeSceneId, state.activeHotspotId, state.pendingDeleteHotspot]);
 
   return (
     <div className="app">
