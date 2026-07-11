@@ -21,6 +21,7 @@ export function ProjectBar() {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
   const skipAutosaveRef = useRef(true);
 
   useEffect(() => {
@@ -43,10 +44,12 @@ export function ProjectBar() {
       skipAutosaveRef.current = false;
       return;
     }
+    setDirty(true);
     const timer = setTimeout(async () => {
       try {
         await saveProjectFlow(state.tour);
         setSavedAt(new Date().toLocaleTimeString());
+        setDirty(false);
       } catch (err: unknown) {
         setMessage({ ok: false, text: `Autosave: ${(err as Error)?.message ?? 'failed'}` });
       }
@@ -123,6 +126,7 @@ export function ProjectBar() {
     run('Save', async () => {
       await saveProjectFlow(state.tour);
       setSavedAt(new Date().toLocaleTimeString());
+      setDirty(false);
       setMessage({ ok: true, text: 'Project saved' });
     });
 
@@ -139,7 +143,16 @@ export function ProjectBar() {
       <button className={styles.btn} onClick={handleSave} disabled={busy || !hasProject}>
         Save
       </button>
-      {projectName && <span className={styles.name}>{projectName}</span>}
+      {projectName && (
+        <span className={styles.name}>
+          {projectName}
+          {dirty && (
+            <span className={styles.dirtyDot} title="Unsaved changes">
+              &#9679;
+            </span>
+          )}
+        </span>
+      )}
       {savedAt && <span className={styles.ok}>&#10003; {savedAt}</span>}
       {message && (
         <span className={message.ok ? styles.ok : styles.error}>{message.text}</span>
