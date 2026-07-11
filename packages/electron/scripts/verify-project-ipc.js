@@ -25,6 +25,10 @@ function makeStub(workDir, dialogCalls, handlers, state) {
     loadFile() {}
     on() {}
     focus() {}
+    maximize() {}
+    isMaximized() { return false; }
+    getBounds() { return { x: 0, y: 0, width: 1400, height: 900 }; }
+    getNormalBounds() { return this.getBounds(); }
     isDestroyed() { return false; }
     static getAllWindows() { return []; }
   }
@@ -54,6 +58,7 @@ function makeStub(workDir, dialogCalls, handlers, state) {
     },
     net: {},
     shell: { openPath: () => {}, showItemInFolder: () => {} },
+    screen: { getAllDisplays: () => [] },
   };
 }
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, screen } = require('electron');
 const { execSync } = require('child_process');
 const { pathToFileURL } = require('url');
 const path = require('path');
@@ -24,6 +24,7 @@ const {
   resolvePreviewFile,
 } = require('./preview');
 const { exportToFolder, exportToZip } = require('./export');
+const { loadWindowState, saveWindowState } = require('./window-state');
 const log = require('./log');
 
 const DEV_SERVER_URL = 'http://localhost:5173';
@@ -74,15 +75,26 @@ function wireWindowLogging(win, name) {
   win.webContents.on('responsive', () => log.info(name, 'window responsive again'));
 }
 
+function windowStateFile() {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+
 function createWindow() {
+  const state = loadWindowState(windowStateFile(), screen.getAllDisplays());
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: state.width,
+    height: state.height,
+    x: state.x,
+    y: state.y,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+  if (state.maximized) mainWindow.maximize();
+  mainWindow.on('close', () => {
+    if (mainWindow) saveWindowState(windowStateFile(), mainWindow);
   });
   wireWindowLogging(mainWindow, 'editor');
 
