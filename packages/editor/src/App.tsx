@@ -20,8 +20,17 @@ function initialLeftPanelWidth(): number {
   return Math.min(LEFT_PANEL_MAX, Math.max(LEFT_PANEL_MIN, stored));
 }
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
+
 function EditorApp() {
-  const { dispatch } = useTour();
+  const { state, dispatch } = useTour();
   const [leftWidth, setLeftWidth] = useState(initialLeftPanelWidth);
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   const [resizing, setResizing] = useState(false);
@@ -55,11 +64,21 @@ function EditorApp() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         dispatch({ type: 'CANCEL_PLACING_HOTSPOT' });
+        return;
+      }
+      if (e.key === 'Delete' && !isTypingTarget(e.target)) {
+        if (state.activeSceneId && state.activeHotspotId) {
+          dispatch({
+            type: 'DELETE_HOTSPOT',
+            sceneId: state.activeSceneId,
+            id: state.activeHotspotId,
+          });
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dispatch]);
+  }, [dispatch, state.activeSceneId, state.activeHotspotId]);
 
   return (
     <div className="app">

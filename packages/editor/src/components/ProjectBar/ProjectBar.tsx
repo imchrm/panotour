@@ -54,6 +54,19 @@ export function ProjectBar() {
     return () => clearTimeout(timer);
   }, [state.tour]);
 
+  useEffect(() => {
+    if (!isElectron()) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (getProjectPath() && !busy) handleSave();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, state.tour]);
+
   if (!isElectron()) return null;
 
   async function loadIntoStore(project: ProjectData) {
