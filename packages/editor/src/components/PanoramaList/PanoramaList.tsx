@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTour, DEFAULT_FOV } from '../../store/tourStore';
 import { isElectron, getElectronApi, getProjectPath, readSceneObjectUrl } from '../../lib/electronApi';
 import { panoramaPreviewUrl } from '../../lib/panoramaPreview';
+import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import styles from './PanoramaList.module.css';
 
 function newSceneId(): string {
@@ -56,6 +57,9 @@ export function PanoramaList() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragArmedId, setDragArmedId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    { id: string; title: string; objectUrl?: string } | null
+  >(null);
 
   const { scenes } = state.tour;
   const selectedIds = scenes.filter((s) => selected[s.id]).map((s) => s.id);
@@ -226,6 +230,14 @@ export function PanoramaList() {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     getElectronApi()?.deleteScene(id).catch(() => {});
     dispatch({ type: 'DELETE_SCENE', id });
+    setPendingDelete(null);
+  }
+
+  function incomingLinkCount(sceneId: string): number {
+    return scenes
+      .filter((s) => s.id !== sceneId)
+      .flatMap((s) => s.hotspots)
+      .filter((h) => h.type === 'link' && h.targetSceneId === sceneId).length;
   }
 
   return (
@@ -400,7 +412,11 @@ export function PanoramaList() {
                 className={styles.deleteBtn}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDelete(scene.id, scene.panoramaObjectUrl);
+                  setPendingDelete({
+                    id: scene.id,
+                    title: scene.title,
+                    objectUrl: scene.panoramaObjectUrl,
+                  });
                 }}
                 title="Delete scene"
               >
@@ -410,6 +426,28 @@ export function PanoramaList() {
           );
         })}
       </ul>
+      {pendingDelete && (
+        <ConfirmModal
+          text={
+            <>
+              Delete scene &quot;{pendingDelete.title}&quot;?
+              <br />
+              This removes the panorama and its tiles from disk. This cannot be undone.
+              {incomingLinkCount(pendingDelete.id) > 0 && (
+                <>
+                  <br />
+                  <br />
+                  {incomingLinkCount(pendingDelete.id)} hotspot(s) in other scenes link here
+                  and will break.
+                </>
+              )}
+            </>
+          }
+          confirmLabel="Delete"
+          onConfirm={() => handleDelete(pendingDelete.id, pendingDelete.objectUrl)}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }
