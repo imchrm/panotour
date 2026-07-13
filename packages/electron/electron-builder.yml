@@ -3,12 +3,7 @@ productName: Panotour Editor
 directories:
   output: dist
 files:
-  - main.js
-  - preload.js
-  - project.js
-  - tiling.js
-  - preview.js
-  - export.js
+  - "*.js"
   - package.json
   - from: ../editor/dist
     to: renderer
