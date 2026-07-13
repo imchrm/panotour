@@ -163,7 +163,7 @@
 - [x] **7.4** `shell.openPath(outputDir)` — открыть папку в Проводнике после экспорта
 
 ### Дистрибуция
-- [ ] **D.1** `electron-builder` target: `portable` (один `.exe`, без установки, Windows x64)
+- [x] **D.1** `electron-builder` target: `portable` (один `.exe`, без установки, Windows x64)
 - [ ] **D.2** `extraFiles`: `packages/tiler/` + `node_modules/sharp` + deps рядом с `.exe`
 - [x] **D.3** В `main.js`: найти `tiler.js` относительно `app.getAppPath()` (не `__dirname`)
 - [ ] **D.4** README: инструкция установки Node.js (ссылка на nodejs.org) как предварительное условие
