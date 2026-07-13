@@ -148,8 +148,8 @@
 ### Фаза 5 — Info-хотспоты
 - [x] **5.1** Добавить по клику на canvas (аналогично nav)
 - [x] **5.2** Поля `title`, `text` (multiline textarea)
-- [ ] **5.3** Изображение: `showOpenDialog` → `fs.copyFile` → `media/`, относительный путь
-- [ ] **5.4** Видео: `showOpenDialog` (mp4) → `media/` или YouTube URL
+- [x] **5.3** Изображение: `showOpenDialog` → `fs.copyFile` → `media/`, относительный путь
+- [x] **5.4** Видео: `showOpenDialog` (mp4/webm) → `media/` или YouTube URL
 
 ### Фаза 6 — Предпросмотр
 - [x] **6.1** Кнопка «Предпросмотр»: генерировать `tour.json` во временную папку (temp)

@@ -55,6 +55,7 @@ export interface ElectronApi {
   readScene(sceneId: string): Promise<Uint8Array>;
   tileScene(sceneId: string, onProgress?: (progress: string) => void): Promise<TileResult>;
   tileAll(sceneIds: string[]): Promise<Array<{ ok: boolean; sceneId: string; error?: string }>>;
+  copyMedia(opts?: { kind?: 'image' | 'video'; srcPath?: string }): Promise<{ canceled: boolean; mediaPath?: string }>;
   openPreview(tourJson: TourData, opts?: { sceneId?: string }): Promise<{ previewDir: string }>;
   exportFolder(tourJson: TourData, opts?: { dirPath?: string }): Promise<{ canceled: boolean; exportPath?: string }>;
   exportZip(tourJson: TourData, opts?: { filePath?: string }): Promise<{ canceled: boolean; exportPath?: string }>;

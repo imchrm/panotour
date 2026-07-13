@@ -57,6 +57,28 @@ function addSceneFile(projectDir, sceneId, srcPath) {
   return { sceneId, sourceFile: `scenes/${sceneId}.jpg`, originalPath: srcPath };
 }
 
+function copyMediaFile(projectDir, srcPath) {
+  requireProject(projectDir);
+  if (!fs.existsSync(srcPath)) {
+    throw new Error(`Source file not found: ${srcPath}`);
+  }
+  const mediaDir = path.join(projectDir, 'media');
+  fs.mkdirSync(mediaDir, { recursive: true });
+  const ext = path.extname(srcPath).toLowerCase();
+  const base = path
+    .basename(srcPath, path.extname(srcPath))
+    .replace(/[^A-Za-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'media';
+  let name = `${base}${ext}`;
+  let counter = 1;
+  while (fs.existsSync(path.join(mediaDir, name))) {
+    name = `${base}-${counter}${ext}`;
+    counter += 1;
+  }
+  fs.copyFileSync(srcPath, path.join(mediaDir, name));
+  return { mediaPath: `media/${name}` };
+}
+
 function deleteSceneFiles(projectDir, sceneId) {
   requireProject(projectDir);
   validateSceneId(sceneId);
@@ -128,6 +150,7 @@ module.exports = {
   openProject,
   saveProject,
   addSceneFile,
+  copyMediaFile,
   deleteSceneFiles,
   readSceneFile,
   listSceneIds,

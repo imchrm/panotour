@@ -11,6 +11,7 @@ const {
   openProject,
   saveProject,
   addSceneFile,
+  copyMediaFile,
   deleteSceneFiles,
   readSceneFile,
   updateSceneTiling,
@@ -221,6 +222,27 @@ function registerIpcHandlers() {
     requireOpenProject();
     const scenes = deleteSceneFiles(projectPath, sceneId);
     return { scenes };
+  });
+
+  handle('media:copy', async (_event, opts = {}) => {
+    requireOpenProject();
+    let src = opts.srcPath;
+    if (!src) {
+      const filters =
+        opts.kind === 'video'
+          ? [{ name: 'Video', extensions: ['mp4', 'webm'] }]
+          : [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }];
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: opts.kind === 'video' ? 'Выбрать видео' : 'Выбрать изображение',
+        buttonLabel: 'Выбрать',
+        filters,
+        properties: ['openFile'],
+      });
+      if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+      src = result.filePaths[0];
+    }
+    const { mediaPath } = copyMediaFile(projectPath, src);
+    return { canceled: false, mediaPath };
   });
 
   handle('tile:run', async (event, sceneId) => {
