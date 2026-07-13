@@ -7,6 +7,9 @@ files:
   - package.json
   - from: ../editor/dist
     to: renderer
+    filter:
+      - "**/*"
+      - "!viewer/**"
 win:
   target: portable
 extraFiles:
