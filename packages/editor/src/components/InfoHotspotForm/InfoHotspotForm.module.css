@@ -1,0 +1,35 @@
+.mediaRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mediaRow input {
+  flex: 1;
+  min-width: 0;
+}
+
+.browseBtn {
+  padding: 3px 9px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.browseBtn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.error {
+  font-size: 11px;
+  color: var(--danger, #e05252);
+  line-height: 1.4;
+  margin-top: 4px;
+}

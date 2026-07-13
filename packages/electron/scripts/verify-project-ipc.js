@@ -89,7 +89,7 @@ async function runProjectChecks() {
 
   const expected = [
     'project:create', 'project:open', 'project:save', 'project:current',
-    'scene:add', 'scene:read', 'scene:delete',
+    'scene:add', 'scene:read', 'scene:delete', 'media:copy',
     'tile:run', 'tile:runAll', 'preview:open',
     'export:folder', 'export:zip',
   ];
@@ -136,6 +136,20 @@ async function runProjectChecks() {
     /Not a panotour project/,
   );
   console.log('project:open invalid dir rejected OK');
+
+  const srcMedia = path.join(workDir, 'My Photo (1).jpg');
+  fs.writeFileSync(srcMedia, 'fake-jpeg');
+  const copied = await invoke('media:copy', { srcPath: srcMedia });
+  assert.strictEqual(copied.canceled, false);
+  assert.match(copied.mediaPath, /^media\/My-Photo-1\.jpg$/);
+  assert(fs.existsSync(path.join(projDir, copied.mediaPath)), 'media file not copied');
+  const copiedAgain = await invoke('media:copy', { srcPath: srcMedia });
+  assert.strictEqual(copiedAgain.mediaPath, 'media/My-Photo-1-1.jpg');
+  await assert.rejects(
+    () => invoke('media:copy', { srcPath: path.join(workDir, 'missing.jpg') }),
+    /not found/,
+  );
+  console.log('media:copy OK: sanitized name, collision suffix, missing source rejected');
 }
 
 async function runNodeMissingCheck() {
