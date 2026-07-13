@@ -2,6 +2,7 @@ import { useTour } from '../../store/tourStore';
 import { type NavHotspot, type InfoHotspot } from '../../store/types';
 import { NavHotspotForm } from '../NavHotspotForm/NavHotspotForm';
 import { InfoHotspotForm } from '../InfoHotspotForm/InfoHotspotForm';
+import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import styles from './HotspotPanel.module.css';
 
 export function HotspotPanel() {
@@ -80,31 +81,18 @@ export function HotspotPanel() {
         <InfoHotspotForm hotspot={activeHotspot as InfoHotspot} sceneId={activeScene.id} />
       )}
       {state.pendingDeleteHotspot && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalBox}>
-            <div className={styles.modalText}>
+        <ConfirmModal
+          text={
+            <>
               Delete hotspot &quot;{state.pendingDeleteHotspot.id}&quot;?
               <br />
               This cannot be undone.
-            </div>
-            <div className={styles.modalActions}>
-              <button
-                className={styles.modalBtn}
-                onClick={() => dispatch({ type: 'CANCEL_DELETE_HOTSPOT' })}
-              >
-                Cancel
-              </button>
-              <button
-                className={`${styles.modalBtn} ${styles.modalBtnDanger}`}
-                onClick={() =>
-                  dispatch({ type: 'DELETE_HOTSPOT', ...state.pendingDeleteHotspot! })
-                }
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          confirmLabel="Delete"
+          onConfirm={() => dispatch({ type: 'DELETE_HOTSPOT', ...state.pendingDeleteHotspot! })}
+          onCancel={() => dispatch({ type: 'CANCEL_DELETE_HOTSPOT' })}
+        />
       )}
     </div>
   );
