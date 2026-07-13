@@ -2,7 +2,6 @@ appId: com.panotour.editor
 productName: Panotour Editor
 directories:
   output: dist
-includeSubNodeModules: true
 files:
   - "*.js"
   - package.json
